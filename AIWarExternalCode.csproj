@@ -76,6 +76,7 @@
     <Compile Include="src\Input\Input_MainHandler.cs" />
     <Compile Include="src\Input\Input_MasterMenuHandler.cs" />
     <Compile Include="src\MapGeneration.cs" />
+    <Compile Include="src\MapGenerationBadger.cs" />
     <Compile Include="src\SpecialFactions\Devourer.cs" />
     <Compile Include="src\SpecialFactions\DysonSphere.cs" />
     <Compile Include="src\SpecialFactions\Zombies.cs" />
