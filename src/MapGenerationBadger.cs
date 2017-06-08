@@ -1885,7 +1885,7 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
 
       bool singleLargeCentralCluster = Context.QualityRandom.NextBool();
 
-      int radius = 75;
+      int radius = 70;
       int distForThisArm = 95;
       int minDistanceBetweenPlanets = 25;
 
@@ -1913,10 +1913,10 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       {
         int percent = Context.QualityRandom.NextWithInclusiveUpperBound(1, 100);
         List<int> clusterSizesListToAddTo;
-        if (percent > 85)
+        if (percent > 90)
         {
           clusterSizesListToAddTo = outerArmClusterSizes;
-        } else if (percent > 40)
+        } else if (percent > 45)
         {
           clusterSizesListToAddTo = innerArmClusterSizes;
         } else
@@ -2029,22 +2029,10 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         var innerArm1 = new List<Planet>();
         var innerArm1Center = CreateClusterOfPlanets(innerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i], ref allPoints, firstArmAngle, linkingMethod, distForThisArm * 2+20);
 
-
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.ShowAsInfo);
-
-        linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
-                                                                  percentRNG, percentSpanningTreeWithConnections,
-                                                                  Context);
-        var outerArm1 = new List<Planet>();
-        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius+30, galacticCenter, minDistanceBetweenPlanets+30, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 4);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
-
-        BadgerUtilityMethods.linkPlanetLists(innerArm1, outerArm1, outerArm1Center, false);
-        BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm1, innerArm1Center, false);
-
-
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);
-
+        
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);       
+        var innerArm2 = new List<Planet>();
+        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+35);
 
         percentGabriel = 15;
         percentRNG = 15;
@@ -2053,10 +2041,15 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
-        var innerArm2 = new List<Planet>();
-        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+35);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking second inner arm clusters {0}", i), Verbosity.DoNotShow);
 
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.ShowAsInfo);
+
+        linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
+                                                                  percentRNG, percentSpanningTreeWithConnections,
+                                                                  Context);
+        var outerArm1 = new List<Planet>();
+        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius + 30, galacticCenter, minDistanceBetweenPlanets + 30, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 4);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
 
         ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second outer arm clusters {0}", i), Verbosity.DoNotShow);
 
@@ -2065,10 +2058,12 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
                                                                   Context);
         var outerArm2 = new List<Planet>();
         var outerArm2Center = CreateClusterOfPlanets(outerArm2, galaxy, Context, radius+30, galacticCenter, minDistanceBetweenPlanets+30, alignmentNumber, outerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle.Add(fakeRotation), linkingMethod, distForThisArm * 4);
+
+        // Link clusters together - inner to outer, body to inner
+        BadgerUtilityMethods.linkPlanetLists(innerArm1, outerArm1, outerArm1Center, false);
+        BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm1, innerArm1Center, false);
         BadgerUtilityMethods.linkPlanetLists(innerArm2, outerArm2, outerArm2Center, false);
         BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm2, innerArm2Center, false);
-
-
       }
 
       if (!singleLargeCentralCluster)
