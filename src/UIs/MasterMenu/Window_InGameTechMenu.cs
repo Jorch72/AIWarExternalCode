@@ -91,7 +91,7 @@ namespace Arcen.AIW2.External
                         }
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.MenuIndexChangedSinceLastButtonSetUpdate = false;
                 }
@@ -162,17 +162,21 @@ namespace Arcen.AIW2.External
                     elementAsType.ClearButtons();
 
                     List<TechMenu> menus = TechMenuTable.Instance.Rows;
+                    int menuIndex = 0;
                     for ( int x = 0; x < menus.Count; x++ )
                     {
                         TechMenu item = menus[x];
+                        if ( item.DoNotShowOnTechMenu )
+                            continue;
                         bMenuSelectionItem newButtonController = new bMenuSelectionItem( x );
                         Vector2 offset;
-                        offset.x = x * elementAsType.ButtonWidth;
+                        offset.x = menuIndex * elementAsType.ButtonWidth;
                         offset.y = 0;
                         Vector2 size;
                         size.x = elementAsType.ButtonWidth;
                         size.y = elementAsType.ButtonHeight;
                         elementAsType.AddButton( newButtonController, size, offset );
+                        menuIndex++;
                     }
                     
                     windowController.MenuIndexChangedSinceLastButtonSetUpdate = true;

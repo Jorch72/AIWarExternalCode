@@ -80,8 +80,8 @@ namespace Arcen.AIW2.External
                                  return DelReturn.Continue;
                              bItem newButtonController = new bItem( type, entity );
                              Vector2 offset;
-                             offset.x = 0;
-                             offset.y = x * elementAsType.ButtonHeight;
+                             offset.x = x * elementAsType.ButtonWidth;
+                             offset.y = 0;
                              Vector2 size;
                              size.x = elementAsType.ButtonWidth;
                              size.y = elementAsType.ButtonHeight;
@@ -91,7 +91,7 @@ namespace Arcen.AIW2.External
                          } );
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.PlanetChangedSinceLastButtonSetUpdate = false;
                 }

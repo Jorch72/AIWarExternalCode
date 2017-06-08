@@ -2,6 +2,7 @@
 using Arcen.Universal;
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace Arcen.AIW2.External
 {
@@ -136,6 +137,7 @@ namespace Arcen.AIW2.External
         public WindowControllerAbstractBase WindowController;
 
         public virtual void OnUpdate() { }
+        public virtual bool GetShouldBeHidden() { return false; }
 
         public void SetElement( ArcenUI_Element Element )
         {
@@ -188,6 +190,30 @@ namespace Arcen.AIW2.External
         public virtual void HandleChangeInValue( string NewValue ) { }
 
         public virtual char ValidateInput( string input, int charIndex, char addedChar ) { return addedChar; }
+    }
+    
+    public abstract class ImageSetAbstractBase : IArcenUI_ImageSet_Controller
+    {
+        public virtual void OnUpdate() { }
+        public virtual bool GetShouldBeHidden() { return false; }
+        public virtual void SetElement( ArcenUI_Element Element ) { }
+    }
+
+    public abstract class ImageButtonSetAbstractBase : IArcenUI_ImageButtonSet_Controller
+    {
+        public virtual void OnUpdate() { }
+        public virtual bool GetShouldBeHidden() { return false; }
+        public virtual void SetElement( ArcenUI_Element Element ) { }
+    }
+
+    public abstract class ImageAbstractBase : IArcenUI_Image_Controller
+    {
+        public virtual void OnUpdate() { }
+        public virtual bool GetShouldBeHidden() { return false; }
+        public virtual void SetElement( ArcenUI_Element Element ) { }
+        public virtual void HandleClick() { }
+        public virtual void HandleMouseover() { }
+        public virtual void UpdateImages( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImage[] SubImages ) { }
     }
 
     public abstract class WindowTogglingButtonController : ButtonAbstractBase

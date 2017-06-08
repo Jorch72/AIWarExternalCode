@@ -24,7 +24,7 @@ namespace Arcen.AIW2.External
                 case "TriggerCurrentMasterMenuAction_9":
                 case "TriggerCurrentMasterMenuAction_10":
                     {
-                        ArcenUI_Window window = Window_InGameMasterMenu.Instance.Window;
+                        ArcenUI_Window window = GetCurrentBottommostMasterMenu();
                         {
                             ToggleableWindowController windowControllerThatIsOpen;
                             WindowTogglingButtonController buttonControllerThatWillCloseIt;
@@ -43,13 +43,22 @@ namespace Arcen.AIW2.External
                     {
                         ToggleableWindowController windowControllerThatIsOpen;
                         WindowTogglingButtonController buttonControllerThatWillCloseIt;
-                        GetTopmostOpenMasterMenuWindow( Window_InGameMasterMenu.Instance.Window, out windowControllerThatIsOpen, out buttonControllerThatWillCloseIt );
+                        GetTopmostOpenMasterMenuWindow( GetCurrentBottommostMasterMenu(), out windowControllerThatIsOpen, out buttonControllerThatWillCloseIt );
                         if ( buttonControllerThatWillCloseIt == null || windowControllerThatIsOpen == null )
+                        {
+                            if ( Engine_AIW2.Instance.GetHasSelection() )
+                                Engine_AIW2.Instance.ClearSelection();
                             break;
+                        }
                         buttonControllerThatWillCloseIt.HandleClick();
                     }
                     break;
             }
+        }
+
+        private static ArcenUI_Window GetCurrentBottommostMasterMenu()
+        {
+            return Engine_AIW2.Instance.GetHasSelection() ? Window_InGameCommandsMenu.Instance.Window : Window_InGameBottomMenu.Instance.Window;
         }
 
         public static IArcenUI_Button_Controller GetButtonByIndex( ArcenUI_Window WindowToSearch, int targetButtonIndex )
@@ -99,13 +108,15 @@ namespace Arcen.AIW2.External
         
         public static bool GetIsWindowTheTopmostOpenMasterMenuWindow(ArcenUI_Window Window)
         {
+            ArcenUI_Window bottomWindow = GetCurrentBottommostMasterMenu();
+
             ToggleableWindowController topmostWindow;
             WindowTogglingButtonController buttonThatOpensIt;
             if ( !( Window.Controller is ToggleableWindowController ) )
             {
-                if(Window.Controller == Window_InGameMasterMenu.Instance)
+                if(Window.Controller == bottomWindow.Controller )
                 {
-                    GetTopmostOpenMasterMenuWindow( Window_InGameMasterMenu.Instance.Window, out topmostWindow, out buttonThatOpensIt );
+                    GetTopmostOpenMasterMenuWindow( bottomWindow, out topmostWindow, out buttonThatOpensIt );
                     if ( topmostWindow == null )
                         return true;
                 }
@@ -114,7 +125,7 @@ namespace Arcen.AIW2.External
             ToggleableWindowController controllerAsType = (ToggleableWindowController)Window.Controller;
             if ( !controllerAsType.IsOpen )
                 return false;
-            GetTopmostOpenMasterMenuWindow( Window_InGameMasterMenu.Instance.Window, out topmostWindow, out buttonThatOpensIt );
+            GetTopmostOpenMasterMenuWindow( bottomWindow, out topmostWindow, out buttonThatOpensIt );
             if ( topmostWindow == null || Window != topmostWindow.Window )
                 return false;
             return true;

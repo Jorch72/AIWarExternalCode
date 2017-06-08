@@ -30,23 +30,7 @@ namespace Arcen.AIW2.External
             if ( !base.GetShouldDrawThisFrame_Subclass() )
                 return false;
 
-            GameEntity possibleEntity = null;
-            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
-             {
-                 if ( selected.TypeData.BuildMenus == null || selected.TypeData.BuildMenus.Count <= 0 )
-                 {
-                     possibleEntity = null;
-                     return DelReturn.Break;
-                 }
-                 if ( possibleEntity != null && possibleEntity.TypeData != selected.TypeData )
-                 {
-                     possibleEntity = null;
-                     return DelReturn.Break;
-                 }
-                 if ( possibleEntity == null )
-                     possibleEntity = selected;
-                 return DelReturn.Continue;
-             } );
+            GameEntity possibleEntity = GetEntityToUseForBuildMenu();
 
             if ( possibleEntity == null )
                 return false;
@@ -60,19 +44,41 @@ namespace Arcen.AIW2.External
                 this.EntityChangedSinceLastButtonSetUpdate_Menu = true;
             }
 
-            if( LastEntityBuildQueueUpdateTimestamp < possibleEntity.TimeBuildQueueLastUpdated)
+            if ( LastEntityBuildQueueUpdateTimestamp < possibleEntity.TimeBuildQueueLastUpdated )
             {
                 this.EntityChangedSinceLastButtonSetUpdate_Queue = true;
                 LastEntityBuildQueueUpdateTimestamp = possibleEntity.TimeBuildQueueLastUpdated;
             }
 
-            if( LastMenuIndex != CurrentMenuIndex)
+            if ( LastMenuIndex != CurrentMenuIndex )
             {
                 MenuIndexChangedSinceLastButtonSetUpdate = true;
                 LastMenuIndex = CurrentMenuIndex;
             }
 
             return true;
+        }
+
+        public static GameEntity GetEntityToUseForBuildMenu()
+        {
+            GameEntity possibleEntity = null;
+            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+            {
+                if ( selected.TypeData.BuildMenus == null || selected.TypeData.BuildMenus.Count <= 0 )
+                {
+                    possibleEntity = null;
+                    return DelReturn.Break;
+                }
+                if ( possibleEntity != null && possibleEntity.TypeData != selected.TypeData )
+                {
+                    possibleEntity = null;
+                    return DelReturn.Break;
+                }
+                if ( possibleEntity == null )
+                    possibleEntity = selected;
+                return DelReturn.Continue;
+            } );
+            return possibleEntity;
         }
 
         public class bsMenuGrid : ButtonSetAbstractBase
@@ -126,7 +132,7 @@ namespace Arcen.AIW2.External
                         }
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.MenuIndexChangedSinceLastButtonSetUpdate = false;
                 }
@@ -286,7 +292,7 @@ namespace Arcen.AIW2.External
                         }
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.EntityChangedSinceLastButtonSetUpdate_Menu = false;
                     windowController.MenuIndexChangedSinceLastButtonSetUpdate = true;
@@ -393,7 +399,7 @@ namespace Arcen.AIW2.External
                         }
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.EntityChangedSinceLastButtonSetUpdate_Queue = false;
                     windowController.MenuIndexChangedSinceLastButtonSetUpdate = true;

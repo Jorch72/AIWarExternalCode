@@ -25,7 +25,7 @@ namespace Arcen.AIW2.External
             public override void HandleClick()
             {
                 Input_MainHandler.HandleInner( 0, "SelectAllMobileMilitary" );
-                Window_InGameMasterMenu.Instance.CloseAllExpansions();
+                Window_InGameBottomMenu.Instance.CloseAllExpansions();
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
@@ -41,7 +41,7 @@ namespace Arcen.AIW2.External
             public override void HandleClick()
             {
                 Input_MainHandler.HandleInner( 0, "SelectController" );
-                Window_InGameMasterMenu.Instance.CloseAllExpansions();
+                Window_InGameBottomMenu.Instance.CloseAllExpansions();
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
@@ -57,7 +57,7 @@ namespace Arcen.AIW2.External
             public override void HandleClick()
             {
                 Input_MainHandler.HandleInner( 0, "SelectSpaceDock" );
-                Window_InGameMasterMenu.Instance.CloseAllExpansions();
+                Window_InGameBottomMenu.Instance.CloseAllExpansions();
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }

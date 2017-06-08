@@ -593,7 +593,7 @@ namespace Arcen.AIW2.External
             if ( planet.ResourceOutputs[ResourceType.Hacking] > 0 )
                 SeedResourceSpot( planet, Context, wormholeRadius, GameEntityTypeDataTable.Instance.GetRandomRowWithTag( Context, "HackingGenerator" ) );
 
-            #region Guardians
+            #region Defense ships
             switch ( planet.PopulationType )
             {
                 case PlanetPopulationType.AIHomeworld:
@@ -700,6 +700,7 @@ namespace Arcen.AIW2.External
             galaxy.Mapgen_SeedSpecialEntities( Context, "AdvancedResearchStation", 4 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "NuclearWarheadSilo", 2 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "EMPWarheadSilo", 2 );
+            //galaxy.Mapgen_SeedSpecialEntities( Context, "Golem", 3 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "SpecialForcesSecretNinjaHideout", Math.Max( 1, galaxy.Planets.Count / 10 ) );
             galaxy.Mapgen_SeedSpecialEntities( Context, "NormalPlanetNastyPick", Math.Max( 1, galaxy.Planets.Count / 2 ) );
             galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Flagship", 1, 3, 3, 3, -1 );
@@ -2286,7 +2287,6 @@ namespace Arcen.AIW2.External
                         ArcenPoint otherClusterCenter = clusterCenters[j];
                         //List<Planet> otherClusterPlanetList = planetsByCluster[j];
                         int distanceToOtherCluster = Mat.DistanceBetweenPoints( clusterCenter, otherClusterCenter );
-                        int testDistance = distanceToClosestCluster / 2;
                         bool foundHit = false;
                         for ( int k = 0; k < clusterCenters.Count; k++ )
                         {

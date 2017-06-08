@@ -85,7 +85,7 @@ namespace Arcen.AIW2.External
                     elementAsType.AddButton( newButtonController, size, offset );
                 }
 
-                elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
             }
         }
 

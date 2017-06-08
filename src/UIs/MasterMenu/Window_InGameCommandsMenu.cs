@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace Arcen.AIW2.External
 {
-    public class Window_InGameCommandsMenu : ToggleableWindowController
+    public class Window_InGameCommandsMenu : WindowControllerAbstractBase
     {
         public static Window_InGameCommandsMenu Instance;
         public Window_InGameCommandsMenu()
@@ -13,6 +13,15 @@ namespace Arcen.AIW2.External
             Instance = this;
             this.OnlyShowInGame = true;
             this.SupportsMasterMenuKeys = true;
+        }
+
+        public override bool GetShouldDrawThisFrame_Subclass()
+        {
+            if ( !base.GetShouldDrawThisFrame_Subclass() )
+                return false;
+            if ( !Engine_AIW2.Instance.GetHasSelection() )
+                return false;
+            return true;
         }
 
         public class bToggleFRD : ButtonAbstractBase
@@ -39,6 +48,12 @@ namespace Arcen.AIW2.External
                     Buffer.Add( "Off" );
             }
             public override void HandleClick() { Input_MainHandler.HandleInner( 0, "ToggleFRD" ); }
+            public override bool GetShouldBeHidden()
+            {
+                if ( !Engine_AIW2.Instance.GetSelectionContains( EntityRollupType.MobileCombatants ) )
+                    return true;
+                return false;
+            }
         }
 
         public class bScrap : ButtonAbstractBase
@@ -51,26 +66,56 @@ namespace Arcen.AIW2.External
             public override void HandleClick()
             {
                 Input_MainHandler.HandleInner( 0, "ScrapUnits" );
-                Window_InGameMasterMenu.Instance.CloseAllExpansions();
+                Window_InGameCommandsMenu.Instance.CloseAllExpansions();
+            }
+            public override bool GetShouldBeHidden()
+            {
+                if ( !Engine_AIW2.Instance.GetSelectionContainsNon( SpecialEntityType.HumanKingUnit ) )
+                    return true;
+                return false;
             }
         }
 
         public class bToggleBuildMenu : WindowTogglingButtonController
         {
-            public bToggleBuildMenu() : base( "Build", "^" ) { }
+            public static bToggleBuildMenu Instance;
+            public bToggleBuildMenu() : base( "Build", "^" ) { Instance = this; }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameBuildMenu.Instance; }
+            public override bool GetShouldBeHidden()
+            {
+                if ( Window_InGameBuildMenu.GetEntityToUseForBuildMenu() == null )
+                    return true;
+                return false;
+            }
         }
 
         public class bToggleHackingMenu : WindowTogglingButtonController
         {
-            public bToggleHackingMenu() : base( "Hacking", ">" ) { }
+            public bToggleHackingMenu() : base( "Hacking", "^" ) { }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameHackingMenu.Instance; }
+            public override bool GetShouldBeHidden()
+            {
+                if ( !Engine_AIW2.Instance.GetSelectionContains( SpecialEntityType.HumanKingUnit ) )
+                    return true;
+                return false;
+            }
         }
 
         public class bToggleWarheadMenu : WindowTogglingButtonController
         {
-            public bToggleWarheadMenu() : base( "Warhead", ">" ) { }
+            public bToggleWarheadMenu() : base( "Warhead", "^" ) { }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameWarheadMenu.Instance; }
+            public override bool GetShouldBeHidden()
+            {
+                if ( !Engine_AIW2.Instance.GetSelectionContains( SpecialEntityType.HumanKingUnit ) )
+                    return true;
+                return false;
+            }
+        }
+
+        public void CloseAllExpansions()
+        {
+            this.CloseWindowsOtherThanThisOne( null );
         }
     }
 }

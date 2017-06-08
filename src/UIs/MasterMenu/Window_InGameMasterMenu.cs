@@ -6,7 +6,7 @@ using UnityEngine;
 
 namespace Arcen.AIW2.External
 {
-    public class Window_InGameMasterMenu : WindowControllerAbstractBase
+    public class Window_InGameMasterMenu : ToggleableWindowController
     {
         public static Window_InGameMasterMenu Instance;
         public Window_InGameMasterMenu()
@@ -18,7 +18,8 @@ namespace Arcen.AIW2.External
 
         public class bToggleEscapeMenu : WindowTogglingButtonController
         {
-            public bToggleEscapeMenu() : base( "Menu", "^" ) { }
+            public static bToggleEscapeMenu Instance;
+            public bToggleEscapeMenu() : base( "System", "^" ) { Instance = this; }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameEscapeMenu.Instance; }
         }
 
@@ -36,14 +37,9 @@ namespace Arcen.AIW2.External
 
         public class bToggleTechMenu : WindowTogglingButtonController
         {
-            public bToggleTechMenu() : base( "Tech", "^" ) { }
+            public static bToggleTechMenu Instance;
+            public bToggleTechMenu() : base( "Tech", "^" ) { Instance = this; }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameTechMenu.Instance; }
-        }
-
-        public class bToggleCommandsMenu : WindowTogglingButtonController
-        {
-            public bToggleCommandsMenu() : base( "Commands", "^" ) { }
-            public override ToggleableWindowController GetRelatedController() { return Window_InGameCommandsMenu.Instance; }
         }
 
         public class bTogglePlanetMenu : WindowTogglingButtonController
@@ -62,11 +58,6 @@ namespace Arcen.AIW2.External
         {
             public bToggleControlGroupsMenu() : base( "Control Groups", "^" ) { }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameControlGroupsMenu.Instance; }
-        }
-
-        public void CloseAllExpansions()
-        {
-            this.CloseWindowsOtherThanThisOne( null );
         }
     }
 }

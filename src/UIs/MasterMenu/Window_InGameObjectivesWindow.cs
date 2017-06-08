@@ -77,7 +77,7 @@ namespace Arcen.AIW2.External
                             elementAsType.AddButton( newButtonController, size, offset );
                         }
 
-                        elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                        elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
                     }
                 }
             }
@@ -573,11 +573,11 @@ namespace Arcen.AIW2.External
                                 Engine_AIW2.Instance.ClearSelection();
                                 producer.Select();
                                 Window_InGameBuildMenu.Instance.Open();
-                                Window_InGameMasterMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameBuildMenu.Instance );
+                                Window_InGameCommandsMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameBuildMenu.Instance );
                                 break;
                             case ObjectiveSubType.GainFleetStrength_ThroughSpendingScience:
                                 Window_InGameTechMenu.Instance.Open();
-                                Window_InGameMasterMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameTechMenu.Instance );
+                                Window_InGameBottomMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameTechMenu.Instance );
                                 break;
                             case ObjectiveSubType.GainFleetStrength_ThroughFuel:
                             case ObjectiveSubType.GainFleetStrength_ThroughScience:

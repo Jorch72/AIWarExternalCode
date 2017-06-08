@@ -60,7 +60,7 @@ namespace Arcen.AIW2.External
                 string newSaveName = "NewSave_" + ( files.Length + 1 );
                 AddSaveButton( elementAsType, newSaveName, files.Length );
 
-                elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
             }
 
             private static void AddSaveButton( ArcenUI_ButtonSet elementAsType, String saveName, int index )
@@ -93,7 +93,9 @@ namespace Arcen.AIW2.External
 
             public override void HandleClick()
             {
-                World.Instance.SaveWorldToDisk( this.SaveName );
+                GameCommand command = GameCommand.Create( GameCommandType.SaveGame );
+                command.RelatedString = this.SaveName;
+                World_AIW2.Instance.QueueGameCommand( command );
                 Window_SaveGameMenu.Instance.Close();
             }
 

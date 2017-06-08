@@ -6,42 +6,46 @@ using UnityEngine;
 
 namespace Arcen.AIW2.External
 {
-    public class Window_InGameControlGroupsMenu : ToggleableWindowController
+    public class Window_InGameBottomMenu : WindowControllerAbstractBase
     {
-        public static Window_InGameControlGroupsMenu Instance;
-        public Window_InGameControlGroupsMenu()
+        public static Window_InGameBottomMenu Instance;
+        public Window_InGameBottomMenu()
         {
             Instance = this;
             this.OnlyShowInGame = true;
             this.SupportsMasterMenuKeys = true;
         }
 
-        public class bToggleStandardGroupsMenu : WindowTogglingButtonController
+        public class bToggleMasterMenu : WindowTogglingButtonController
         {
-            public bToggleStandardGroupsMenu() : base( "Standard Groups", "^" ) { }
-            public override ToggleableWindowController GetRelatedController() { return Window_InGameStandardGroupsMenu.Instance; }
+            public static bToggleMasterMenu Instance;
+            public bToggleMasterMenu() : base( "Menu", "^" ) { Instance = this; }
+            public override ToggleableWindowController GetRelatedController() { return Window_InGameMasterMenu.Instance; }
         }
 
-        public class bsControlGroups : ButtonSetAbstractBase
+        public void CloseAllExpansions()
         {
-            private DateTime TimeOfLastUpdate;
+            this.CloseWindowsOtherThanThisOne( null );
+        }
 
+        public class bsControlGroupRow : ButtonSetAbstractBase
+        {
             public override void OnUpdate()
             {
                 WorldSide localSide = World_AIW2.Instance.GetLocalSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
+                //Window_InGameBottomMenu windowController = (Window_InGameBottomMenu)Element.Window.Controller;
 
-                if ( this.TimeOfLastUpdate < Engine_AIW2.Instance.TimeOfLastControlGroupChange )
+                if ( elementAsType.Buttons.Count <= 0 )
                 {
-                    this.TimeOfLastUpdate = DateTime.Now;
                     elementAsType.ClearButtons();
 
-                    int x = 0;
-                    localSide.DoForControlGroups( delegate ( ControlGroup group )
+                    int numberOfButtons = 9;
+                    for ( int x = 0; x < numberOfButtons; x++ )
                     {
-                        bControlGroupItem newButtonController = new bControlGroupItem( group );
+                        bControlGroup newButtonController = new bControlGroup( x );
                         Vector2 offset;
                         offset.x = x * elementAsType.ButtonWidth;
                         offset.y = 0;
@@ -49,40 +53,54 @@ namespace Arcen.AIW2.External
                         size.x = elementAsType.ButtonWidth;
                         size.y = elementAsType.ButtonHeight;
                         elementAsType.AddButton( newButtonController, size, offset );
-                        x++;
-                        return DelReturn.Continue;
-                    } );
-
-                    {
-                        bCreateControlGroup newButtonController = new bCreateControlGroup();
-                        Vector2 offset;
-                        offset.x = x * elementAsType.ButtonWidth;
-                        offset.y = 0;
-                        Vector2 size;
-                        size.x = elementAsType.ButtonWidth;
-                        size.y = elementAsType.ButtonHeight;
-                        elementAsType.AddButton( newButtonController, size, offset );
-                        x++;
                     }
 
-                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
+                    {
+                        bToggleMasterMenu newButtonController = new bToggleMasterMenu();
+                        Vector2 offset;
+                        offset.x = numberOfButtons * elementAsType.ButtonWidth;
+                        offset.y = 0;
+                        Vector2 size;
+                        size.x = elementAsType.ButtonWidth;
+                        size.y = elementAsType.ButtonHeight;
+                        elementAsType.AddButton( newButtonController, size, offset );
+                    }
                 }
             }
         }
 
-        private class bControlGroupItem : ButtonAbstractBase
+        private class bControlGroup : ButtonAbstractBase
         {
-            public ControlGroup ControlGroup;
+            public int ControlGroupIndex;
 
-            public bControlGroupItem( ControlGroup ControlGroup )
+            public bControlGroup( int MenuIndex )
             {
-                this.ControlGroup = ControlGroup;
+                this.ControlGroupIndex = MenuIndex;
+            }
+
+            private ControlGroup GetControlGroup()
+            {
+                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                if ( this.ControlGroupIndex < 0 || this.ControlGroupIndex >= localSide.ControlGroups.Count )
+                    return null;
+                return localSide.ControlGroups[this.ControlGroupIndex];
             }
 
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
                 base.GetTextToShow( Buffer );
-                Buffer.Add( this.ControlGroup == null ? "NULL" : ControlGroup.Name );
+                //Buffer.Add( ( this.ControlGroupIndex + 1 ) );
+                ControlGroup group = this.GetControlGroup();
+                if ( group != null )
+                {
+                    //Buffer.Add( " (" );
+                    Buffer.Add( group.Name );
+                    //Buffer.Add( ")" );
+                }
+                else
+                {
+                    //Buffer.Add( "Empty" );
+                }
             }
 
             public override void HandleClick()
@@ -102,7 +120,9 @@ namespace Arcen.AIW2.External
 
                 bool isAssigningToGroup = Engine_AIW2.Instance.PresentationLayer.GetAreInputFlagsActive( ArcenInputFlags.ModifyingControlGroup );
 
-                if ( this.ControlGroup == null )
+                ControlGroup group = this.GetControlGroup();
+
+                if ( group == null )
                     return;
 
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
@@ -119,7 +139,7 @@ namespace Arcen.AIW2.External
                         commandType = GameCommandType.SetControlGroupPopulation;
                     GameCommand command = GameCommand.Create( commandType );
                     command.SentWithToggleSet_SetOrdersForProducedUnits = Engine_AIW2.Instance.SettingOrdersForProducedUnits;
-                    command.RelatedControlGroup = this.ControlGroup;
+                    command.RelatedControlGroup = group;
                     Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
                     {
                         command.RelatedEntityIDs.Add( selected.PrimaryKeyID );
@@ -129,7 +149,7 @@ namespace Arcen.AIW2.External
                 }
                 else
                 {
-                    this.ControlGroup.DoForEntities( delegate ( GameEntity entity )
+                    group.DoForEntities( delegate ( GameEntity entity )
                     {
                         if ( entity.Combat.Planet != planet )
                             return DelReturn.Continue;
@@ -152,7 +172,7 @@ namespace Arcen.AIW2.External
                     if ( !foundOne && clearSelectionFirst )
                     {
                         Engine_AIW2.Instance.ClearSelection();
-                        this.ControlGroup.DoForEntities( delegate ( GameEntity entity )
+                        group.DoForEntities( delegate ( GameEntity entity )
                         {
                             if ( !foundOne )
                             {
@@ -169,34 +189,7 @@ namespace Arcen.AIW2.External
                             return DelReturn.Continue;
                         } );
                     }
-                    Window_InGameBottomMenu.Instance.CloseAllExpansions();
                 }
-            }
-
-            public override void HandleMouseover() { }
-
-            public override void OnUpdate()
-            {
-            }
-        }
-
-        private class bCreateControlGroup : ButtonAbstractBase
-        {
-            public bCreateControlGroup()
-            {
-            }
-
-            public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
-            {
-                base.GetTextToShow( Buffer );
-                Buffer.Add( "(Create New)" );
-            }
-
-            public override void HandleClick()
-            {
-                GameCommand command = GameCommand.Create( GameCommandType.CreateNewControlGroup );
-                command.RelatedSide = World_AIW2.Instance.GetLocalSide();
-                World_AIW2.Instance.QueueGameCommand( command );
             }
 
             public override void HandleMouseover() { }

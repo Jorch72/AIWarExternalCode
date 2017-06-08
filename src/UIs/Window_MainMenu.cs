@@ -97,24 +97,24 @@ namespace Arcen.AIW2.External
             public override void OnUpdate() { }
         }
 
-        public class bTextWithInlineImagesTest : IArcenUI_TextWithInlineImages_Controller
-        {
-            protected ArcenUI_TextWithInlineImages element;
+        //public class bTextWithInlineImagesTest : IArcenUI_TextWithInlineImages_Controller
+        //{
+        //    protected ArcenUI_TextWithInlineImages element;
 
-            public void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
-            {
-                //Buffer.Add( "boo!" );
-            }
+        //    public void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
+        //    {
+        //        //Buffer.Add( "boo!" );
+        //    }
 
-            public void OnUpdate()
-            {
+        //    public void OnUpdate()
+        //    {
                 
-            }
+        //    }
 
-            public void SetElement( ArcenUI_Element Element )
-            {
-                this.element = (ArcenUI_TextWithInlineImages)Element;
-            }
-        }
+        //    public void SetElement( ArcenUI_Element Element )
+        //    {
+        //        this.element = (ArcenUI_TextWithInlineImages)Element;
+        //    }
+        //}
     }
 }

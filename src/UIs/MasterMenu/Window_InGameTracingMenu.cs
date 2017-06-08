@@ -34,8 +34,8 @@ namespace Arcen.AIW2.External
                         ArcenTracingFlags flag = (ArcenTracingFlags)flagInt;
                         bItem newButtonController = new bItem( flag );
                         Vector2 offset;
-                        offset.x = 0;
-                        offset.y = x * elementAsType.ButtonHeight;
+                        offset.x = x * elementAsType.ButtonWidth;
+                        offset.y = 0;
                         Vector2 size;
                         size.x = elementAsType.ButtonWidth;
                         size.y = elementAsType.ButtonHeight;

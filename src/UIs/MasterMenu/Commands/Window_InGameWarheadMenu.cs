@@ -76,8 +76,8 @@ namespace Arcen.AIW2.External
                             continue;
                         bItem newButtonController = new bItem( type );
                         Vector2 offset;
-                        offset.x = 0;
-                        offset.y = x * elementAsType.ButtonHeight;
+                        offset.x = x * elementAsType.ButtonWidth;
+                        offset.y = 0;
                         Vector2 size;
                         size.x = elementAsType.ButtonWidth;
                         size.y = elementAsType.ButtonHeight;
@@ -85,7 +85,7 @@ namespace Arcen.AIW2.External
                         x++;
                     }
 
-                    elementAsType.ActuallyDestroyButtonsThatAreStillCleared();
+                    elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
 
                     windowController.PlanetChangedSinceLastButtonSetUpdate = false;
                 }

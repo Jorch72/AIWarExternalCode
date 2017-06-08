@@ -246,6 +246,100 @@ namespace Arcen.AIW2.External
                 case "ShowShipOrders":
                     ArcenInput_AIW2.ShouldShowShipOrders = true;
                     break;
+                case "SelectBuilder":
+                    {
+                        if ( !World.Instance.IsLoaded )
+                            return;
+                        WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                        if ( localSide == null )
+                            return;
+                        Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
+                        if ( planet == null )
+                            return;
+
+                        GameEntity currentBuilder = null;
+                        if ( Engine_AIW2.Instance.GetHasSelection() )
+                        {
+                            currentBuilder = Window_InGameBuildMenu.GetEntityToUseForBuildMenu();
+                            if ( currentBuilder == null )
+                                Engine_AIW2.Instance.ClearSelection();
+                        }
+
+                        CombatSide side = planet.Combat.GetSideForWorldSide( localSide );
+                        bool foundCurrent = false;
+                        GameEntity newBuilder = null;
+                        GameEntity firstBuilder = null;
+                        side.Entities.DoForEntities( GameEntityCategory.Ship, delegate ( GameEntity entity )
+                         {
+                             if ( entity.TypeData.BuildMenus == null || entity.TypeData.BuildMenus.Count <= 0 )
+                                 return DelReturn.Continue;
+                             if ( firstBuilder == null )
+                             {
+                                 firstBuilder = entity;
+                             }
+                             if ( entity == currentBuilder )
+                             {
+                                 foundCurrent = true;
+                             }
+                             else if ( foundCurrent )
+                             {
+                                 newBuilder = entity;
+                                 return DelReturn.Break;
+                             }
+                             return DelReturn.Continue;
+                         } );
+                        if ( newBuilder == null && firstBuilder != null )
+                        {
+                            newBuilder = firstBuilder;
+                        }
+                        if ( newBuilder != null )
+                        {
+                            newBuilder.Select();
+                            if ( !Window_InGameBuildMenu.Instance.IsOpen )
+                                Window_InGameCommandsMenu.bToggleBuildMenu.Instance.HandleClick();
+                        }
+                    }
+                    break;
+                case "OpenTechMenu":
+                case "OpenSystemMenu":
+                case "ClearMenus":
+                    if ( !World.Instance.IsLoaded )
+                        return;
+                    ToggleableWindowController window;
+                    switch(InputActionInternalName)
+                    {
+                        case "OpenTechMenu":
+                            window = Window_InGameTechMenu.Instance;
+                            break;
+                        case "OpenSystemMenu":
+                            window = Window_InGameEscapeMenu.Instance;
+                            break;
+                        case "ClearMenus":
+                            window = null;
+                            break;
+                        default:
+                            return;
+                    }
+                    bool closing = window == null || window.IsOpen;
+                    Engine_AIW2.Instance.ClearSelection();
+                    Window_InGameBottomMenu.Instance.CloseAllExpansions();
+                    if ( !closing )
+                    {
+                        Window_InGameBottomMenu.bToggleMasterMenu.Instance.HandleClick();
+
+                        switch ( InputActionInternalName )
+                        {
+                            case "OpenTechMenu":
+                                Window_InGameMasterMenu.bToggleTechMenu.Instance.HandleClick();
+                                break;
+                            case "OpenSystemMenu":
+                                Window_InGameMasterMenu.bToggleEscapeMenu.Instance.HandleClick();
+                                break;
+                            default:
+                                return;
+                        }
+                    }
+                    break;
             }
         }
     }

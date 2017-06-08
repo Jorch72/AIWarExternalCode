@@ -47,6 +47,9 @@
       <HintPath>..\ReliableDLLStorage\System.XML.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="TextMeshPro">
+      <HintPath>..\ReliableDLLStorage\TextMeshPro.dll</HintPath>
+    </Reference>
     <Reference Include="UnityEngine">
       <HintPath>..\ReliableDLLStorage\UnityEngine.dll</HintPath>
       <Private>False</Private>
@@ -65,51 +68,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="src\AI\Budgeting.cs" />
-    <Compile Include="src\AI\SpecialForces.cs" />
-    <Compile Include="src\AI\Threat.cs" />
-    <Compile Include="src\BuildPatterns\BasicTurretry.cs" />
-    <Compile Include="src\DeathEffects\Zombificiation.cs" />
-    <Compile Include="src\Hacking\Hacking.cs" />
-    <Compile Include="src\InitialSetupForDLL.cs" />
-    <Compile Include="src\Input\Input_DebugHandler.cs" />
-    <Compile Include="src\Input\Input_MainHandler.cs" />
-    <Compile Include="src\Input\Input_MasterMenuHandler.cs" />
-    <Compile Include="src\MapGeneration.cs" />
-    <Compile Include="src\MapGenerationBadger.cs" />
-    <Compile Include="src\SpecialFactions\Devourer.cs" />
-    <Compile Include="src\SpecialFactions\DysonSphere.cs" />
-    <Compile Include="src\SpecialFactions\Zombies.cs" />
-    <Compile Include="src\TargetSorters\StandardTargetSorter.cs" />
-    <Compile Include="src\UIs\DebugStuff\Window_DebugInfo.cs" />
-    <Compile Include="src\UIs\DebugStuff\Window_ErrorReportMenu.cs" />
-    <Compile Include="src\UIs\InGamePassiveDisplay\Window_InGameBottomLeftInfo.cs" />
-    <Compile Include="src\UIs\InGamePassiveDisplay\Window_InGameBottomRightInfo.cs" />
-    <Compile Include="src\UIs\InGamePassiveDisplay\Window_InGameTopRightInfo.cs" />
-    <Compile Include="src\UIs\InGamePassiveDisplay\Window_ResourceBar.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameBuildMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameCommandsMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameControlGroupsMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameDeveloperToolsMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameEscapeMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameHackingMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameMasterMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameObjectivesWindow.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGamePlanetActionMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameStandardGroupsMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameTechMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameTimingMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameTracingMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_InGameWarheadMenu.cs" />
-    <Compile Include="src\UIs\MasterMenu\Window_SaveGameMenu.cs" />
-    <Compile Include="src\UIs\SupportClasses\WindowAbstractBase.cs" />
-    <Compile Include="src\UIs\Window_GameSetup.cs" />
-    <Compile Include="src\UIs\Window_GUIToggling.cs" />
-    <Compile Include="src\UIs\Window_InGameOutlineSidebar.cs" />
-    <Compile Include="src\UIs\Window_LoadGameMenu.cs" />
-    <Compile Include="src\UIs\Window_MainMenu.cs" />
-    <Compile Include="src\UIs\Window_PausedInfo.cs" />
-    <Compile Include="src\Cheats.cs" />
+    <Compile Include="src\**\*.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

@@ -93,7 +93,7 @@ namespace Arcen.AIW2.External
 
         public class bToggleTracingMenu : WindowTogglingButtonController
         {
-            public bToggleTracingMenu() : base( "Tracing", ">" ) { }
+            public bToggleTracingMenu() : base( "Tracing", "^" ) { }
             public override ToggleableWindowController GetRelatedController() { return Window_InGameTracingMenu.Instance; }
         }
 
