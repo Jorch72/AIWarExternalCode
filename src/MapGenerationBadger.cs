@@ -1856,7 +1856,7 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
     public override void Generate(Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType)
     { 
       int symmetryFactor = 2;
-      numberToSeed = Context.QualityRandom.NextWithInclusiveUpperBound(10 / 5, 120 / 5) * 5; // randomize for testing
+      numberToSeed = 120; // Context.QualityRandom.NextWithInclusiveUpperBound(10 / 5, 120 / 5) * 5; // randomize for testing
 
 
       if (numberToSeed < 20)
@@ -1872,7 +1872,7 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         // Context.QualityRandom.NextBool()
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2,3);
       }
-      else if(numberToSeed < 120)
+      else if(numberToSeed < 110)
       {
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2, 4);
       }
@@ -1881,7 +1881,7 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(3, 5);
       }
 
-      int minPlanetsPerCluster = Math.Max(numberToSeed / (symmetryFactor * 5) - 1, 2);
+      int minPlanetsPerCluster = Math.Max(numberToSeed / (symmetryFactor * 5), 2);
 
       bool singleLargeCentralCluster = Context.QualityRandom.NextBool();
 
@@ -1913,10 +1913,10 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       {
         int percent = Context.QualityRandom.NextWithInclusiveUpperBound(1, 100);
         List<int> clusterSizesListToAddTo;
-        if (percent > 90)
+        if (percent > 70)
         {
           clusterSizesListToAddTo = outerArmClusterSizes;
-        } else if (percent > 45)
+        } else if (percent > 30)
         {
           clusterSizesListToAddTo = innerArmClusterSizes;
         } else
