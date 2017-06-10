@@ -1854,27 +1854,43 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
        clusters in each arm
        */
     public override void Generate(Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType)
-    {
-      int symmetryFactor = 3;
+    { 
+      int symmetryFactor = 2;
+      // numberToSeed = Context.QualityRandom.NextWithInclusiveUpperBound(80 / 5, 120 / 5) * 5; // randomize for testing
+
+
       if (numberToSeed < 20)
       {
-        numberToSeed = 20; //too small of maps would be dumb, you can't see it properly
         symmetryFactor = 1;
       }
-      else if (numberToSeed < 80)
+      else if (numberToSeed < 60)
       {
         symmetryFactor = 2;
       }
-      else if (Context.QualityRandom.NextBool())
+      else if (numberToSeed < 80)
       {
-        symmetryFactor = 4;
+        symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2,3);
       }
-      
-      int minPlanetsPerCluster = Math.Max(numberToSeed / (symmetryFactor * 5) - 1, 1);
-      
-      int radius = 80;
-      int distForThisArm = 100;
-      int minDistanceBetweenPlanets = 30;
+      else if(numberToSeed < 110)
+      {
+        symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2, 4);
+      }
+      else
+      {
+        symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(3, 5);
+      }
+
+      int minPlanetsPerCluster = Math.Max(numberToSeed / (symmetryFactor * 5), 2);
+
+      // need at least symmetry three for multi-cluster method to look decent
+      bool singleLargeCentralCluster = (symmetryFactor < 3) || Context.QualityRandom.NextBool();
+
+      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("Generating a spiral galaxy with symmetry {0} and {1}", symmetryFactor, singleLargeCentralCluster ? "one large central cluster" : "a ring of small central clusters"), Verbosity.ShowAsInfo);
+
+
+      int radius = 70;
+      int distForThisArm = 95;
+      int minDistanceBetweenPlanets = 25;
 
 
       ArcenPoint galacticCenter = Engine_AIW2.GalaxyCenter;
@@ -1900,15 +1916,17 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       {
         int percent = Context.QualityRandom.NextWithInclusiveUpperBound(1, 100);
         List<int> clusterSizesListToAddTo;
-        if (percent > 85)
+        if (percent > 70)
         {
           clusterSizesListToAddTo = outerArmClusterSizes;
-        } else if (percent > 40)
+        }
+        else if (percent > 30)
         {
           clusterSizesListToAddTo = innerArmClusterSizes;
-        } else
+        }
+        else
         {
-          clusterSizesListToAddTo = centerClusterSizes;
+          clusterSizesListToAddTo = singleLargeCentralCluster ? innerArmClusterSizes : centerClusterSizes;
         }
 
         int i = Context.QualityRandom.Next(0, clusterSizesListToAddTo.Count);
@@ -1917,13 +1935,13 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       }
 
       foreach( var i in centerClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine("center " + i, Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine("center " + i, Verbosity.DoNotShow);
 
       foreach (var i in innerArmClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine(" inner " + i, Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine(" inner " + i, Verbosity.DoNotShow);
 
       foreach (var i in outerArmClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine(" outer " + i, Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine(" outer " + i, Verbosity.DoNotShow);
 
 
 
@@ -1937,37 +1955,44 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       List<List<ArcenPoint>> innerArmPointsList = new List<List<ArcenPoint>>();
       List<ArcenPoint> outerArmCenters = new List<ArcenPoint>();
       List<List<ArcenPoint>> outerArmPointsList = new List<List<ArcenPoint>>();
-
-      //  bodyPoints = BadgerUtilityMethods.addPointsInCircle(numBodyPlanets,
-      //                                     Context,  Engine_AIW2.GalaxyCenter, radius,
-      //                                    minDistanceBetweenPlanets, ref allPoints, alignmentNumber);
-      ArcenDebugging.ArcenDebugLogSingleLine("PointsForBody added", Verbosity.DoNotShow);
-
       List<List<Planet>> bodyPlanets = new List<List<Planet>>();
 
-
-
+      
       //Figure out where to place the Arms; we split them evenly around the body
       //note that we update the armAngle for each iteration.
 
       AngleDegrees startingAngle = AngleDegrees.Create((FInt)Context.QualityRandom.NextWithInclusiveUpperBound(10, 350));
-
       AngleDegrees anglePerArm = AngleDegrees.Create((FInt)360 / (FInt)symmetryFactor);
       AngleDegrees subAnglePerArm = AngleDegrees.Create((FInt)360 / (FInt)symmetryFactor / (FInt)3);
       AngleDegrees fakeRotation = AngleDegrees.Create((FInt)20);
 
       AngleDegrees armAngle = startingAngle;
+
+      List<Planet> bodyCluster = new List<Planet>();
+      ArcenPoint center;
+      LinkMethod linkingMethod = LinkMethod.Gabriel;
+
+      if (singleLargeCentralCluster)
+      {
+        var totalCentralPlanets = 0;
+        for(int i = 0; i < centerClusterSizes.Count; i++)
+        {
+          totalCentralPlanets += centerClusterSizes[i];
+        }
+        center = CreateClusterOfPlanets(bodyCluster, galaxy, Context, radius * 2, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, totalCentralPlanets, ref allPoints, armAngle, linkingMethod, 0);
+      }
+
       for (int i = 0; i < symmetryFactor; i++)
       {
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating cluster {0}", i), Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating cluster {0}", i), Verbosity.DoNotShow);
 
         armAngle = armAngle.Add(anglePerArm);
 
         var firstArmAngle = armAngle.Add(fakeRotation);
         var secondArmAngle = firstArmAngle.Add(subAnglePerArm);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("armAngle {0}", armAngle), Verbosity.ShowAsInfo);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("first arm angle {0}", firstArmAngle), Verbosity.ShowAsInfo);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("second arm angle {0}", secondArmAngle), Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("armAngle {0}", armAngle), Verbosity.DoNotShow);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("first arm angle {0}", firstArmAngle), Verbosity.DoNotShow);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("second arm angle {0}", secondArmAngle), Verbosity.DoNotShow);
 
 
 
@@ -1976,17 +2001,20 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         int percentRNG = 10;
         int percentSpanningTree = 5;
         int percentSpanningTreeWithConnections = 5;
-        LinkMethod linkingMethod = LinkMethod.Gabriel;
+        
 
         // s = "Iter "+ i + " of " + planetsPerArm.Count + " planets for it: " + planetsPerArm[i] + " thisArmDist " + distForThisArm + " minArm  " + minArmDistFromBody + " maxArm " + maxArmDistFromBody;
         // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-        var bodyCluster = new List<Planet>();
-        var center = CreateClusterOfPlanets(bodyCluster, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, centerClusterSizes[i], ref allPoints, armAngle, linkingMethod, distForThisArm);
+        if (!singleLargeCentralCluster)
+        {
+          bodyCluster = new List<Planet>();
+          center = CreateClusterOfPlanets(bodyCluster, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, centerClusterSizes[i], ref allPoints, armAngle, linkingMethod, distForThisArm);
+          bodyPlanets.Add(bodyCluster);
+          bodyCenters.Add(center);
+        }
 
-        bodyPlanets.Add(bodyCluster);
-        bodyCenters.Add(center);
 
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating inner arm clusters {0}", i), Verbosity.ShowAsInfo);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating inner arm clusters {0}", i), Verbosity.DoNotShow);
 
          percentGabriel = 50;
          percentRNG = 30;
@@ -1996,24 +2024,12 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
         var innerArm1 = new List<Planet>();
-        var innerArm1Center = CreateClusterOfPlanets(innerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, innerArmClusterSizes[2 * i], ref allPoints, firstArmAngle, linkingMethod, distForThisArm * 2+10);
+        var innerArm1Center = CreateClusterOfPlanets(innerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i], ref allPoints, firstArmAngle, linkingMethod, distForThisArm * 2+20);
 
-
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.ShowAsInfo);
-
-        linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
-                                                                  percentRNG, percentSpanningTreeWithConnections,
-                                                                  Context);
-        var outerArm1 = new List<Planet>();
-        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 3+20);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
-
-        BadgerUtilityMethods.linkPlanetLists(innerArm1, outerArm1, outerArm1Center, false);
-        BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm1, innerArm1Center, false);
-
-
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);
-
+        
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);       
+        var innerArm2 = new List<Planet>();
+        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+35);
 
         percentGabriel = 15;
         percentRNG = 15;
@@ -2022,10 +2038,15 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
-        var innerArm2 = new List<Planet>();
-        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+15);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking second inner arm clusters {0}", i), Verbosity.DoNotShow);
 
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.DoNotShow);
+
+        linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
+                                                                  percentRNG, percentSpanningTreeWithConnections,
+                                                                  Context);
+        var outerArm1 = new List<Planet>();
+        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius + 30, galacticCenter, minDistanceBetweenPlanets + 30, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 4);
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
 
         ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second outer arm clusters {0}", i), Verbosity.DoNotShow);
 
@@ -2033,37 +2054,41 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
         var outerArm2 = new List<Planet>();
-        var outerArm2Center = CreateClusterOfPlanets(outerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets, alignmentNumber, outerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle.Add(fakeRotation), linkingMethod, distForThisArm * 3+35);
+        var outerArm2Center = CreateClusterOfPlanets(outerArm2, galaxy, Context, radius+30, galacticCenter, minDistanceBetweenPlanets+30, alignmentNumber, outerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle.Add(fakeRotation), linkingMethod, distForThisArm * 4);
+
+        // Link clusters together - inner to outer, body to inner
+        BadgerUtilityMethods.linkPlanetLists(innerArm1, outerArm1, outerArm1Center, false);
+        BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm1, innerArm1Center, false);
         BadgerUtilityMethods.linkPlanetLists(innerArm2, outerArm2, outerArm2Center, false);
         BadgerUtilityMethods.linkPlanetLists(bodyCluster, innerArm2, innerArm2Center, false);
-
-
       }
 
-      ArcenDebugging.ArcenDebugLogSingleLine("linking central clusters together", Verbosity.ShowAsInfo);
-      for (var i = 0; i < symmetryFactor - 1; i++)
+      if (!singleLargeCentralCluster)
       {
-        BadgerUtilityMethods.linkPlanetLists(bodyPlanets[i], bodyPlanets[i + 1], bodyCenters[i+1], false);
+        ArcenDebugging.ArcenDebugLogSingleLine("linking central clusters together", Verbosity.DoNotShow);
+        for (var i = 0; i < symmetryFactor - 1; i++)
+        {
+          BadgerUtilityMethods.linkPlanetLists(bodyPlanets[i], bodyPlanets[i + 1], bodyCenters[i + 1], false);
 
+        }
+        ArcenDebugging.ArcenDebugLogSingleLine("linking last two central clusters together to make a ring", Verbosity.DoNotShow);
+        BadgerUtilityMethods.linkPlanetLists(bodyPlanets[0], bodyPlanets[bodyPlanets.Count - 1], bodyCenters[bodyPlanets.Count - 1], false);
       }
-      ArcenDebugging.ArcenDebugLogSingleLine("linking last two central clusters together to make a ring", Verbosity.ShowAsInfo);
-      BadgerUtilityMethods.linkPlanetLists(bodyPlanets[0], bodyPlanets[bodyPlanets.Count - 1], bodyCenters[bodyPlanets.Count - 1], false);
-
     }
 
     private static ArcenPoint CreateClusterOfPlanets(List<Planet> cluster, Galaxy galaxy, ArcenSimContext Context, int radius, ArcenPoint galacticCenter, int minDistanceBetweenPlanets, int alignmentNumber, int clusterSize, ref List<ArcenPoint> allPoints, AngleDegrees armAngle, LinkMethod linkingMethod, int distForThisArm)
     {
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - creating cluster\n size: {0}\nangle: {1}\n dist: {2}", clusterSize, armAngle, distForThisArm, linkingMethod), Verbosity.ShowAsInfo);
+      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - creating cluster\n size: {0}\nangle: {1}\n dist: {2}", clusterSize, armAngle, distForThisArm, linkingMethod), Verbosity.DoNotShow);
 
       var bodyCenter = galacticCenter.GetPointAtAngleAndDistance(armAngle, distForThisArm);
       List<ArcenPoint> pointsForArm = BadgerUtilityMethods.addPointsInCircle(clusterSize, Context, bodyCenter, radius,
                                         minDistanceBetweenPlanets, ref allPoints, alignmentNumber);
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - converting to planets", clusterSize, armAngle, distForThisArm), Verbosity.ShowAsInfo);
+      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - converting to planets", clusterSize, armAngle, distForThisArm), Verbosity.DoNotShow);
 
       List<Planet> planetsForThisArm = BadgerUtilityMethods.convertPointsToPlanets(pointsForArm, galaxy, Context);
       cluster.AddRange(planetsForThisArm);
 
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - linking\n link: {0}", linkingMethod), Verbosity.ShowAsInfo);
+      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - linking\n link: {0}", linkingMethod), Verbosity.DoNotShow);
 
       if (linkingMethod == LinkMethod.Gabriel)
         BadgerUtilityMethods.createGabrielGraph(planetsForThisArm);
