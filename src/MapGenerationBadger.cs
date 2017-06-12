@@ -62,6 +62,35 @@ namespace Arcen.AIW2.External
           }
         return pointsForThisCircle;
       }
+
+		//adds an ellipse of points
+		internal static List<ArcenPoint> addElipticalPoints(int numPoints, ArcenSimContext Context, ArcenPoint ellipseCenter, int ellipseMajorAxis,
+			int ellipseMinorAxis, double rotationRad, ref List<ArcenPoint> pointsSoFar) {
+			float startingAngle = Context.QualityRandom.NextFloat(1, 359);
+			List<ArcenPoint> pointsForThisCircle = new List<ArcenPoint>();
+			for(int i = 0; i < numPoints; i++) {
+				float angle = (360f / (float)numPoints) * (float)i; // yes, this is theoretically an MP-sync problem, but a satisfactory 360 arc was simply not coming from the FInt approximations and I'm figuring the actual full-sync at the beginning of the game should sync things up before they matter
+				angle += startingAngle;
+				if(angle >= 360f)
+					angle -= 360f;
+				double angleRad = angle / 180 * Math.PI;
+				ArcenPoint pointOnRing = ellipseCenter;
+				double tan = Math.Sin(angleRad) / Math.Cos(angleRad);
+				double x = ellipseMajorAxis * ellipseMinorAxis / Math.Sqrt(ellipseMinorAxis * ellipseMinorAxis + ellipseMajorAxis * ellipseMajorAxis * tan * tan);
+				//heck if I know why this has to be done, but the ellipse gets twisted without it
+        if(angle >= 90) x = -x;
+				if(angle >= 270) x = -x;
+				double y = x * Math.Sin(angleRad) / Math.Cos(angleRad);
+				double xn = x * Math.Cos(rotationRad) - y * Math.Sin(rotationRad);
+				double yn = x * Math.Sin(rotationRad) + y * Math.Cos(rotationRad);
+				pointOnRing.X += (int)xn;
+				pointOnRing.Y += (int)yn;
+				pointsForThisCircle.Add(pointOnRing);
+				pointsSoFar.Add(pointOnRing);/**/
+			}
+			return pointsForThisCircle;
+		}
+    
     internal static List<ArcenPoint> addGrid()
       {
         return null;
