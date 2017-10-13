@@ -1,5 +1,5 @@
 ﻿using Arcen.Universal;
-using Arcen.Universal.Uniterm;
+using Arcen.Universal.UnitermData;
 using Arcen.AIW2.Core;
 using System;
 using System.Collections.Generic;
@@ -21,7 +21,7 @@ namespace Arcen.AIW2.External
         [Command( "destroy_selected", "", "", true, false )]
         public static void destroy_selected()
         {
-            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+            Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
              {
                  selected.Die( Context );
                  return DelReturn.Continue;
@@ -31,7 +31,7 @@ namespace Arcen.AIW2.External
         [Command( "toggle_invincible", "", "", true, false )]
         public static void toggle_invincible()
         {
-            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+            Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
             {
                 selected.Debug_IgnoresDamage = !selected.Debug_IgnoresDamage;
                 return DelReturn.Continue;
@@ -47,7 +47,7 @@ namespace Arcen.AIW2.External
                 ArcenUI.Instance.AddMessageToUnitermOutput( "Parameter must be an integer" );
                 return;
             }
-            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+            Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
             {
                 int targetHealth = ( selected.TypeData.BalanceStats.ShieldPoints * percentAsInt ) / 100;
                 selected.ShieldPointsLost = selected.TypeData.BalanceStats.ShieldPoints - targetHealth;
@@ -64,7 +64,7 @@ namespace Arcen.AIW2.External
                 ArcenUI.Instance.AddMessageToUnitermOutput( "Parameter must be an integer" );
                 return;
             }
-            Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+            Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
             {
                 int targetHealth = ( selected.TypeData.BalanceStats.HullPoints * percentAsInt ) / 100;
                 selected.HullPointsLost = selected.TypeData.BalanceStats.HullPoints - targetHealth;

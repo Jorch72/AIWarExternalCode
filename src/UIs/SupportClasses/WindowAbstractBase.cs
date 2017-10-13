@@ -10,15 +10,17 @@ namespace Arcen.AIW2.External
     {
         public ArcenUI_Window Window;
         public bool ShouldCauseAllOtherWindowsToNotShow;
+        public bool IsAtMouseTooltip;
         public bool ShouldShowEvenWhenGUIHidden;
         public bool OnlyShowInGame;
         public bool SupportsMasterMenuKeys;
+        public bool PreventsNormalInputHandlers;
         private static readonly List<WindowControllerAbstractBase> CurrentlyShownWindowsWith_ShouldCauseAllOtherWindowsToNotShow = new List<WindowControllerAbstractBase>();
 
         public bool GetShouldDrawThisFrame()
         {
             bool result = true;
-            if ( !this.ShouldCauseAllOtherWindowsToNotShow && CurrentlyShownWindowsWith_ShouldCauseAllOtherWindowsToNotShow.Count > 0 )
+            if ( !this.ShouldCauseAllOtherWindowsToNotShow && !this.IsAtMouseTooltip && CurrentlyShownWindowsWith_ShouldCauseAllOtherWindowsToNotShow.Count > 0 )
                 result = false;
             if ( ArcenUI.Instance.InHideGUIMode && !this.ShouldShowEvenWhenGUIHidden )
                 result = false;
@@ -77,6 +79,16 @@ namespace Arcen.AIW2.External
         }
 
         public virtual void OnShowingRefused() { }
+
+        public virtual void PopulateFreeFormControls( ArcenUI_SetOfCreateElementDirectives Set ) { }
+
+        bool IArcenUI_Window_Controller.PreventsNormalInputHandlers
+        {
+            get
+            {
+                return PreventsNormalInputHandlers;
+            }
+        }
     }
 
     public abstract class ToggleableWindowController : WindowControllerAbstractBase
@@ -138,6 +150,7 @@ namespace Arcen.AIW2.External
 
         public virtual void OnUpdate() { }
         public virtual bool GetShouldBeHidden() { return false; }
+        public virtual void HandleMouseover() { }
 
         public void SetElement( ArcenUI_Element Element )
         {
@@ -157,7 +170,9 @@ namespace Arcen.AIW2.External
         {
             if ( this.WindowController.SupportsMasterMenuKeys )
             {
-                if ( Input_MasterMenuHandler.GetIsWindowTheTopmostOpenMasterMenuWindow( this.Element.Window ) )
+                if ( Input_MasterMenuHandler.GetIsWindowTheTopmostOpenMasterMenuWindow( this.Element.Window ) 
+                     && !Window_InGameBuildTypeIconMenu.Instance.IsOpen
+                     && !Window_InGameTechTypeIconMenu.Instance.IsOpen )
                 {
                     int index = Input_MasterMenuHandler.GetIndexByButton( this.Element.Window, this );
                     if ( index >= 0 )
@@ -166,8 +181,30 @@ namespace Arcen.AIW2.External
             }
         }
 
-        public virtual void HandleClick() { }
+        public virtual MouseHandlingResult HandleClick() { return MouseHandlingResult.None; }
+        public virtual void DoAnyCustomButtonStuff( ArcenUI_Button Button ) { }
+    }
+
+    public abstract class ImageButtonAbstractBase : IArcenUI_ImageButton_Controller
+    {
+        public abstract void UpdateContent( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImageGroup SubImages, SubTextGroup SubTexts );
+
+        public virtual MouseHandlingResult HandleClick() { return MouseHandlingResult.None; }
+
         public virtual void HandleMouseover() { }
+
+        public virtual void OnUpdate() { }
+        public virtual bool GetShouldBeHidden() { return false; }
+        public virtual void SetElement( ArcenUI_Element Element ) { }
+        public virtual void HandleSubImageMouseover( ArcenUI_Image.SubImage SubImage ) { }
+        public virtual void HandleSubTextMouseover( SubText SubText ) { }
+    }
+
+    public abstract class SliderAbstractBase : ElementAbstractBase, IArcenUI_Slider_Controller
+    {
+        public virtual void DoAnyCustomSliderStuff( ArcenUI_Slider Slider ) { }
+        public virtual MouseHandlingResult HandleClick() { return MouseHandlingResult.None; }
+        public virtual void OnChange( float NewValue ) { }
     }
 
     public abstract class ButtonSetAbstractBase : ElementAbstractBase, IArcenUI_ButtonSet_Controller
@@ -197,6 +234,7 @@ namespace Arcen.AIW2.External
         public virtual void OnUpdate() { }
         public virtual bool GetShouldBeHidden() { return false; }
         public virtual void SetElement( ArcenUI_Element Element ) { }
+        public virtual void HandleMouseover() { }
     }
 
     public abstract class ImageButtonSetAbstractBase : IArcenUI_ImageButtonSet_Controller
@@ -204,6 +242,7 @@ namespace Arcen.AIW2.External
         public virtual void OnUpdate() { }
         public virtual bool GetShouldBeHidden() { return false; }
         public virtual void SetElement( ArcenUI_Element Element ) { }
+        public virtual void HandleMouseover() { }
     }
 
     public abstract class ImageAbstractBase : IArcenUI_Image_Controller
@@ -213,7 +252,7 @@ namespace Arcen.AIW2.External
         public virtual void SetElement( ArcenUI_Element Element ) { }
         public virtual void HandleClick() { }
         public virtual void HandleMouseover() { }
-        public virtual void UpdateImages( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImage[] SubImages ) { }
+        public virtual void UpdateImages( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImageGroup SubImages ) { }
     }
 
     public abstract class WindowTogglingButtonController : ButtonAbstractBase
@@ -230,11 +269,14 @@ namespace Arcen.AIW2.External
 
         public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
         {
+            bool toggledWindowIsShown = this.GetRelatedController().IsOpen;
+            if ( this.GetShouldSuppressOpenIndicatorEvenIfToggledWindowIsShown() )
+                toggledWindowIsShown = false;
             base.GetTextToShow( Buffer );
-            Buffer.Add( this.GetRelatedController().IsOpen ? this.TextWhenOpen : this.TextWhenClosed );
+            Buffer.Add( toggledWindowIsShown ? this.TextWhenOpen : this.TextWhenClosed );
         }
 
-        public override void HandleClick()
+        public override MouseHandlingResult HandleClick()
         {
             ToggleableWindowController controller = this.GetRelatedController();
             if ( controller.IsOpen )
@@ -245,6 +287,7 @@ namespace Arcen.AIW2.External
                 if ( this.Window != null && this.Window.Controller is WindowControllerAbstractBase )
                     ( (WindowControllerAbstractBase)this.Window.Controller ).CloseWindowsOtherThanThisOne( controller );
             }
+            return MouseHandlingResult.None;
         }
 
         public override void HandleMouseover() { }
@@ -255,5 +298,7 @@ namespace Arcen.AIW2.External
         }
 
         public abstract ToggleableWindowController GetRelatedController();
+
+        public virtual bool GetShouldSuppressOpenIndicatorEvenIfToggledWindowIsShown() { return false; }
     }
 }

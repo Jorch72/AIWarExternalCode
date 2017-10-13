@@ -44,7 +44,7 @@ namespace Arcen.AIW2.External
         {
             FInt result = (FInt)ExternalConstants.Instance.Balance_StrengthPerCap / 20; // basic difficulty cost of travelling a hop
 
-            result += planet.HumanTotalStrength;
+            result += planet.Combat.GetSideForWorldSide( AISide ).DataByStance[SideStance.Hostile].TotalStrength;
 
             return result;
         }

@@ -49,6 +49,7 @@ namespace Arcen.AIW2.External
 
         private static FInt bestTargetFound_Danger;
         private static int bestTargetFound_Index;
+        private static int bestTargetFound_SideIndex=-1;
         public Planet GetCurrentTargetPlanet( ArcenSimContext Context, GameEntity hideout, List<GameEntity> hideoutFleet )
         {
             #region Tracing
@@ -73,10 +74,12 @@ namespace Arcen.AIW2.External
             #endregion
             bestTargetFound_Index = -1;
             bestTargetFound_Danger = FInt.Zero;
+            bestTargetFound_SideIndex = hideout.Side.WorldSide.SideIndex;
             hideoutPlanet.DoForPlanetsWithinXHops( Context, 3, delegate ( Planet planet, int Distance )
             {
-                FInt danger = planet.LongRangePlanningData.HumanTotalStrength - planet.LongRangePlanningData.AITotalStrength;
-                if ( danger < FInt.Zero && -danger < planet.LongRangePlanningData.AITotalStrength / 2 )
+                FInt friendlyStrengthTotal;
+                FInt danger = GetDanger( planet, bestTargetFound_SideIndex, out friendlyStrengthTotal );
+                if ( danger < FInt.Zero && -danger < friendlyStrengthTotal / 2 )
                 {
                     #region Tracing
                     if ( tracing ) tracingBuffer.Add( "\n" ).Add( "rejecting target " ).Add( planet.Name ).Add( " because danger too low: " ).Add( danger.ReadableString );
@@ -106,7 +109,7 @@ namespace Arcen.AIW2.External
                     #endregion
                     return PropogationEvaluation.No;
                  }
-                 FInt danger = planet.LongRangePlanningData.HumanTotalStrength - planet.LongRangePlanningData.AITotalStrength;
+                 FInt danger = GetDanger( planet, bestTargetFound_SideIndex );
                  if ( danger >= hideoutFleetStrength * 2 )
                  {
                     #region Tracing
@@ -123,15 +126,31 @@ namespace Arcen.AIW2.External
                  }
                  return PropogationEvaluation.Yes;
              } );
+            bestTargetFound_SideIndex = -1;
 
-            FInt currentTargetPlanetDanger = currentTargetPlanet.LongRangePlanningData.HumanTotalStrength - currentTargetPlanet.LongRangePlanningData.AITotalStrength;
-            if ( bestTargetFound_Index < 0 || bestTargetFound_Danger <= ( currentTargetPlanetDanger * 2 ) )
             {
-                bestTargetFound_Index = currentTargetPlanet.PlanetIndex;
-                bestTargetFound_Danger = currentTargetPlanetDanger;
+                FInt currentTargetPlanetDanger = GetDanger( currentTargetPlanet, hideout.Side.WorldSide.SideIndex );
+                if ( bestTargetFound_Index < 0 || bestTargetFound_Danger <= ( currentTargetPlanetDanger * 2 ) )
+                {
+                    bestTargetFound_Index = currentTargetPlanet.PlanetIndex;
+                    bestTargetFound_Danger = currentTargetPlanetDanger;
+                }
             }
 
             return World_AIW2.Instance.GetPlanetByIndex( bestTargetFound_Index );
+        }
+
+        private static FInt GetDanger( Planet planet, int sideIndex )
+        {
+            FInt dummy;
+            return GetDanger( planet, sideIndex, out dummy );
+        }
+
+        private static FInt GetDanger( Planet planet, int sideIndex, out FInt friendlyStrengthTotal )
+        {
+            LongRangePlanningData_CombatSide mySideData = planet.LongRangePlanningData.CombatSideDataByIndex[sideIndex];
+            friendlyStrengthTotal = mySideData.DataByStance[SideStance.Self].TotalStrength + mySideData.DataByStance[SideStance.Friendly].TotalStrength;
+            return mySideData.DataByStance[SideStance.Hostile].TotalStrength - friendlyStrengthTotal;
         }
     }
 }

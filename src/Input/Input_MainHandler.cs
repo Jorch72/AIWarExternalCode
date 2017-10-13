@@ -14,6 +14,8 @@ namespace Arcen.AIW2.External
 
         public static void HandleInner( Int32 Int1, string InputActionInternalName )
         {
+            if ( ArcenUI.CurrentlyShownWindowsWith_PreventsNormalInputHandlers.Count > 0 )
+                return;
             if ( ArcenUI.Instance.ShowingConsole )
                 return;
             switch ( InputActionInternalName )
@@ -30,7 +32,7 @@ namespace Arcen.AIW2.External
                         if ( !World.Instance.IsLoaded )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.Debug_SendNextWave );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "DebugIncreaseAIP":
@@ -38,7 +40,7 @@ namespace Arcen.AIW2.External
                         if ( !World.Instance.IsLoaded )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.Debug_IncreaseAIP );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "DebugGiveSomeMetal":
@@ -46,7 +48,7 @@ namespace Arcen.AIW2.External
                         if ( !World.Instance.IsLoaded )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.Debug_GiveMetal );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "DebugGiveScience":
@@ -54,14 +56,15 @@ namespace Arcen.AIW2.External
                         if ( !World.Instance.IsLoaded )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.Debug_GiveScience );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "DebugConnectToLocalServer":
-                    ArcenSocket.Instance.OpenAsClient( Window_MainMenu.Instance.TargetIP, (ushort)GameSettings.Current.NetworkPort );
+                    ArcenSocket.Instance.OpenAsClient( Window_MainMenu.Instance.TargetIP, (ushort)GameSettings.Current.GetInt( ArcenIntSetting_Universal.NetworkPort ) );
                     break;
                 case "ReloadExternalDefinitions":
-                    Engine_Universal.OnReloadAllExternalDefinitions();
+                    ArcenUI.Instance.Initialize( true );
+                    //Engine_Universal.OnReloadAllExternalDefinitions();
                     break;
                 case "ReloadExternalConstantsAndLanguageOnly":
                     Engine_Universal.OnReloadExternalConstantsAndLanguageOnly();
@@ -87,7 +90,7 @@ namespace Arcen.AIW2.External
                         if ( Engine_Universal.RunStatus == RunStatus.GameStart )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.TogglePause );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "ScoutAll":
@@ -95,7 +98,7 @@ namespace Arcen.AIW2.External
                         if ( Engine_Universal.RunStatus == RunStatus.GameStart )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.Debug_RevealAll );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "ScrapUnits":
@@ -103,13 +106,13 @@ namespace Arcen.AIW2.External
                         if ( !World.Instance.IsLoaded )
                             return;
                         GameCommand command = GameCommand.Create( GameCommandType.ScrapUnits );
-                        Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity ship )
+                        Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity ship )
                         {
                             command.RelatedEntityIDs.Add( ship.PrimaryKeyID );
                             return DelReturn.Continue;
                         } );
                         if ( command.RelatedEntityIDs.Count > 0 )
-                            World_AIW2.Instance.QueueGameCommand( command );
+                            World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "ToggleFRD":
@@ -119,7 +122,7 @@ namespace Arcen.AIW2.External
                         GameCommand command = GameCommand.Create( GameCommandType.SetBehavior );
                         command.SentWithToggleSet_SetOrdersForProducedUnits = Engine_AIW2.Instance.SettingOrdersForProducedUnits;
                         bool foundSomeOff = false;
-                        Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+                        Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
                         {
                             if ( selected.EntitySpecificOrders.Behavior != EntityBehaviorType.Attacker )
                                 foundSomeOff = true;
@@ -129,13 +132,13 @@ namespace Arcen.AIW2.External
                         if ( foundSomeOff )
                             targetType = EntityBehaviorType.Attacker;
                         command.RelatedMagnitude = (int)targetType;
-                        Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity ship )
+                        Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity ship )
                         {
                             command.RelatedEntityIDs.Add( ship.PrimaryKeyID );
                             return DelReturn.Continue;
                         } );
                         if ( command.RelatedEntityIDs.Count > 0 )
-                            World_AIW2.Instance.QueueGameCommand( command );
+                            World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "ToggleSettingOrdersForProducedUnits":
@@ -144,13 +147,13 @@ namespace Arcen.AIW2.External
                 case "ToggleCombatSideBooleanFlag":
                     {
                         Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
-                        CombatSide side = planet.Combat.GetSideForWorldSide( World_AIW2.Instance.GetLocalSide() );
+                        CombatSide side = planet.Combat.GetSideForWorldSide( World_AIW2.Instance.GetLocalPlayerSide() );
                         GameCommand command = GameCommand.Create( GameCommandType.ChangeCombatSideBooleanFlag );
                         command.RelatedSide = side.WorldSide;
                         command.RelatedPlanetIndex = planet.PlanetIndex;
                         command.RelatedCombatSideBooleanFlag = (CombatSideBooleanFlag)Int1;
                         command.RelatedBool = !side.BooleanFlags[command.RelatedCombatSideBooleanFlag];
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "SelectAllMobileMilitary":
@@ -159,7 +162,7 @@ namespace Arcen.AIW2.External
                     {
                         if ( !World.Instance.IsLoaded )
                             return;
-                        WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                        WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                         if ( localSide == null )
                             return;
                         Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
@@ -192,7 +195,7 @@ namespace Arcen.AIW2.External
                         }
                         else
                         {
-                            Engine_AIW2.Instance.ClearSelection();
+                            Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                         }
 
                         for ( int i = 0; i < planet.Combat.Sides.Count; i++ )
@@ -221,7 +224,7 @@ namespace Arcen.AIW2.External
                         command.RelatedMagnitude = 1;
                         if ( InputActionInternalName == "DecreaseFrameSize" )
                             command.RelatedMagnitude = -command.RelatedMagnitude;
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "IncreaseFrameFrequency":
@@ -231,7 +234,7 @@ namespace Arcen.AIW2.External
                         command.RelatedMagnitude = 1;
                         if ( InputActionInternalName == "DecreaseFrameFrequency" )
                             command.RelatedMagnitude = -command.RelatedMagnitude;
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "ShowShipRanges_Selected":
@@ -250,7 +253,7 @@ namespace Arcen.AIW2.External
                     {
                         if ( !World.Instance.IsLoaded )
                             return;
-                        WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                        WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                         if ( localSide == null )
                             return;
                         Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
@@ -258,12 +261,14 @@ namespace Arcen.AIW2.External
                             return;
 
                         GameEntity currentBuilder = null;
-                        if ( Engine_AIW2.Instance.GetHasSelection() )
+                        if ( Engine_AIW2.Instance.GetHasSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy ) )
                         {
-                            currentBuilder = Window_InGameBuildMenu.GetEntityToUseForBuildMenu();
-                            if ( currentBuilder == null )
-                                Engine_AIW2.Instance.ClearSelection();
+                            currentBuilder = ArcenExternalUIUtilities.GetEntityToUseForBuildMenu();
+                            if ( currentBuilder != null )
+                                Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                         }
+
+                        Window_InGameBottomMenu.Instance.CloseAllExpansions();
 
                         CombatSide side = planet.Combat.GetSideForWorldSide( localSide );
                         bool foundCurrent = false;
@@ -295,13 +300,12 @@ namespace Arcen.AIW2.External
                         if ( newBuilder != null )
                         {
                             newBuilder.Select();
-                            if ( !Window_InGameBuildMenu.Instance.IsOpen )
+                            if ( !Window_InGameBuildTabMenu.Instance.IsOpen )
                                 Window_InGameCommandsMenu.bToggleBuildMenu.Instance.HandleClick();
                         }
                     }
                     break;
                 case "OpenTechMenu":
-                case "OpenSystemMenu":
                 case "ClearMenus":
                     if ( !World.Instance.IsLoaded )
                         return;
@@ -309,10 +313,7 @@ namespace Arcen.AIW2.External
                     switch(InputActionInternalName)
                     {
                         case "OpenTechMenu":
-                            window = Window_InGameTechMenu.Instance;
-                            break;
-                        case "OpenSystemMenu":
-                            window = Window_InGameEscapeMenu.Instance;
+                            window = Window_InGameTechTabMenu.Instance;
                             break;
                         case "ClearMenus":
                             window = null;
@@ -321,7 +322,7 @@ namespace Arcen.AIW2.External
                             return;
                     }
                     bool closing = window == null || window.IsOpen;
-                    Engine_AIW2.Instance.ClearSelection();
+                    Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                     Window_InGameBottomMenu.Instance.CloseAllExpansions();
                     if ( !closing )
                     {
@@ -331,9 +332,6 @@ namespace Arcen.AIW2.External
                         {
                             case "OpenTechMenu":
                                 Window_InGameMasterMenu.bToggleTechMenu.Instance.HandleClick();
-                                break;
-                            case "OpenSystemMenu":
-                                Window_InGameMasterMenu.bToggleEscapeMenu.Instance.HandleClick();
                                 break;
                             default:
                                 return;

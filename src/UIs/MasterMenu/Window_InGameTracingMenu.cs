@@ -20,7 +20,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
@@ -66,7 +66,7 @@ namespace Arcen.AIW2.External
                 buffer.Add( ")" );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 if ( Engine_AIW2.Instance.TracingFlags.Has( this.Flag ) )
                     Engine_AIW2.Instance.TracingFlags = Engine_AIW2.Instance.TracingFlags.Remove( this.Flag );
@@ -74,6 +74,7 @@ namespace Arcen.AIW2.External
                     Engine_AIW2.Instance.TracingFlags = Engine_AIW2.Instance.TracingFlags.Add( this.Flag );
                 if ( this.Flag == ArcenTracingFlags.Performance )
                     Engine_Universal.TracePerformance = Engine_AIW2.Instance.TracingFlags.Has( ArcenTracingFlags.Performance );
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }

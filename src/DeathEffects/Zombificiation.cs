@@ -25,7 +25,8 @@ namespace Arcen.AIW2.External
             if ( destinationSide == null )
                 return;
             CombatSide sideForNewEntity = Entity.Combat.GetSideForWorldSide( destinationSide );
-            GameEntity.CreateNew( sideForNewEntity, Entity.TypeData, Entity.WorldLocation, Context );
+            GameEntity zombie = GameEntity.CreateNew( sideForNewEntity, Entity.TypeData, Entity.WorldLocation, Context );
+            zombie.EntitySpecificOrders.Behavior = EntityBehaviorType.Attacker;
         }
     }
 }

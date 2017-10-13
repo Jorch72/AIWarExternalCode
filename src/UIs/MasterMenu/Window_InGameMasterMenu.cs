@@ -39,13 +39,19 @@ namespace Arcen.AIW2.External
         {
             public static bToggleTechMenu Instance;
             public bToggleTechMenu() : base( "Tech", "^" ) { Instance = this; }
-            public override ToggleableWindowController GetRelatedController() { return Window_InGameTechMenu.Instance; }
+            public override ToggleableWindowController GetRelatedController() { return Window_InGameTechTabMenu.Instance; }
         }
 
         public class bTogglePlanetMenu : WindowTogglingButtonController
         {
             public bTogglePlanetMenu() : base( "Planet", "^" ) { }
             public override ToggleableWindowController GetRelatedController() { return Window_InGamePlanetActionMenu.Instance; }
+        }
+
+        public class bToggleGalaxyMenu : WindowTogglingButtonController
+        {
+            public bToggleGalaxyMenu() : base( "Galaxy", "^" ) { }
+            public override ToggleableWindowController GetRelatedController() { return Window_InGameGalaxyMenu.Instance; }
         }
 
         public class bToggleObjectivesMenu : WindowTogglingButtonController

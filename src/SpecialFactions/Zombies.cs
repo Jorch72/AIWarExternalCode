@@ -40,6 +40,23 @@ namespace Arcen.AIW2.External
 
             return result;
         }
+
+        public bool GetShouldAttackNormallyExcludedTarget( WorldSide side, GameEntity Target )
+        {
+            return false;
+        }
+
+        public void SeedStartingEntities( WorldSide side, Galaxy galaxy, ArcenSimContext Context, MapTypeData mapType )
+        {
+        }
+
+        public void DoLongRangePlanning( WorldSide side, ArcenLongTermPlanningContext Context )
+        {
+        }
+
+        public void DoPerSimStepLogic( WorldSide side, ArcenSimContext Context )
+        {
+        }
     }
 
     public class SpecialFaction_AntiPlayerZombie : ISpecialFactionImplementation
@@ -76,6 +93,23 @@ namespace Arcen.AIW2.External
 
             return result;
         }
+
+        public bool GetShouldAttackNormallyExcludedTarget( WorldSide side, GameEntity Target )
+        {
+            return false;
+        }
+
+        public void SeedStartingEntities( WorldSide side, Galaxy galaxy, ArcenSimContext Context, MapTypeData mapType )
+        {
+        }
+
+        public void DoLongRangePlanning( WorldSide side, ArcenLongTermPlanningContext Context )
+        {
+        }
+
+        public void DoPerSimStepLogic( WorldSide side, ArcenSimContext Context )
+        {
+        }
     }
 
     public class SpecialFaction_AntiEveryoneZombie : ISpecialFactionImplementation
@@ -109,6 +143,23 @@ namespace Arcen.AIW2.External
             result[AIBudgetType.Reinforcement] = FInt.One;
 
             return result;
+        }
+
+        public bool GetShouldAttackNormallyExcludedTarget( WorldSide side, GameEntity Target )
+        {
+            return false;
+        }
+
+        public void SeedStartingEntities( WorldSide side, Galaxy galaxy, ArcenSimContext Context, MapTypeData mapType )
+        {
+        }
+
+        public void DoLongRangePlanning( WorldSide side, ArcenLongTermPlanningContext Context )
+        {
+        }
+
+        public void DoPerSimStepLogic( WorldSide side, ArcenSimContext Context )
+        {
         }
     }
 }

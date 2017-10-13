@@ -420,6 +420,39 @@ namespace Arcen.AIW2.External
 
     public abstract class Mapgen_Base : IMapGenerator
     {
+        private readonly ArcenRandomDrawBag<IWormholePlacer> WormholePlacers = new ArcenRandomDrawBag<IWormholePlacer>();
+        private readonly ArcenRandomDrawBag<AIDefensePlacer> DefensePlacers = new ArcenRandomDrawBag<AIDefensePlacer>();
+
+        protected Mapgen_Base()
+        {
+            int baseDistance = ExternalConstants.Instance.Balance_AverageGravWellRadius;
+
+            {
+                int maxDistance = ( baseDistance * FInt.FromParts( 0, 900 ) ).IntValue;
+                int minDistance = ( baseDistance * FInt.FromParts( 0, 300 ) ).IntValue;
+                int middleDistance_1 = ( baseDistance * FInt.FromParts( 0, 500 ) ).IntValue;
+                int middleDistance_2 = ( baseDistance * FInt.FromParts( 0, 700 ) ).IntValue;
+
+                // All in a ring at one of the predefined distances
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( maxDistance, maxDistance ), 3 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( minDistance, minDistance ), 3 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( middleDistance_1, middleDistance_1 ), 3 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( middleDistance_2, middleDistance_2 ), 3 );
+
+                // Each at randomly selected distances in the predefined ranges; less common than the rings
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( minDistance, maxDistance ), 1 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( middleDistance_1, maxDistance ), 1 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( middleDistance_2, maxDistance ), 1 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( minDistance, middleDistance_2 ), 1 );
+                this.WormholePlacers.AddItem( new WormholePlacer_Default( middleDistance_1, middleDistance_2 ), 1 );
+            }
+
+            {
+                foreach ( AIDefensePlacer row in AIDefensePlacerTable.Instance.Rows )
+                    this.DefensePlacers.AddItem( row, 1 );
+            }
+        }
+
         public virtual void Generate( Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType )
         {
         }
@@ -432,7 +465,9 @@ namespace Arcen.AIW2.External
             int innerSystemMaximumRadius = ( ExternalConstants.Instance.Balance_AverageGravWellRadius * FInt.FromParts( 0, 300 ) ).IntValue;
 
             ArcenPoint center = Engine_AIW2.Instance.CombatCenter;
-            AngleDegrees angleToAI = AngleDegrees.Create( (FInt)Context.QualityRandom.Next( 0, 360 ) );
+
+            IWormholePlacer wormholePlacer = this.WormholePlacers.PickRandomItemAndReplace( Context.QualityRandom );
+            planet.AIDefensePlacer = this.DefensePlacers.PickRandomItemAndReplace( Context.QualityRandom );
 
             switch ( planet.PopulationType )
             {
@@ -446,6 +481,10 @@ namespace Arcen.AIW2.External
 
                         int distanceToGate = ( warpGateData.Radius + controllerData.Radius ) * 2;
 
+                        bool haveCreatedController = false;
+                        
+                        ArcenPoint controllerPoint = planet.AIDefensePlacer.Implementation.GetPointForController( Context, planet );
+
                         for ( int i = 0; i < planet.Combat.Sides.Count; i++ )
                         {
                             CombatSide side = planet.Combat.Sides[i];
@@ -454,13 +493,22 @@ namespace Arcen.AIW2.External
                             {
                                 case WorldSideType.AI:
                                     {
-                                        ArcenPoint sideCenter = center.GetPointAtAngleAndDistance( angleToAI, Context.QualityRandom.Next( innerSystemMinimumRadius, innerSystemMaximumRadius ) );
-                                        GameEntity.CreateNew( side, controllerData, sideCenter, Context );
+                                        if ( !haveCreatedController )
+                                        {
+                                            if ( planet.PopulationType != PlanetPopulationType.HumanHomeworld || !Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                                            {
+                                                GameEntity.CreateNew( side, controllerData, controllerPoint, Context );
+                                                haveCreatedController = true;
+                                            }
+                                        }
 
                                         ArcenPoint entityPoint;
 
-                                        entityPoint = sideCenter.GetRandomPointWithinDistance( Context.QualityRandom, distanceToGate, distanceToGate );
-                                        GameEntity.CreateNew( side, warpGateData, entityPoint, Context );
+                                        if ( planet.PopulationType != PlanetPopulationType.HumanHomeworld || !Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                                        {
+                                            entityPoint = controllerPoint.GetRandomPointWithinDistance( Context.QualityRandom, distanceToGate, distanceToGate );
+                                            GameEntity.CreateNew( side, warpGateData, entityPoint, Context );
+                                        }
 
                                         switch ( planet.PopulationType )
                                         {
@@ -470,7 +518,7 @@ namespace Arcen.AIW2.External
                                                     for ( int j = 0; j < testShipDatas.Count; j++ )
                                                     {
                                                         GameEntityTypeData testShipData = testShipDatas[j];
-                                                        entityPoint = sideCenter.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
+                                                        entityPoint = controllerPoint.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
                                                         GameEntity.CreateNew( side, testShipData, entityPoint, Context );
                                                     }
                                                 }
@@ -478,7 +526,7 @@ namespace Arcen.AIW2.External
                                             case PlanetPopulationType.AIHomeworld:
                                                 for ( int j = 0; j < 4; j++ )
                                                 {
-                                                    entityPoint = sideCenter.GetRandomPointWithinDistance( Context.QualityRandom, distanceToGate, distanceToGate );
+                                                    entityPoint = controllerPoint.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
                                                     GameEntity.CreateNew( side, warheadSupressorData, entityPoint, Context );
                                                 }
                                                 break;
@@ -487,11 +535,31 @@ namespace Arcen.AIW2.External
                                                 {
                                                     for ( int j = 0; j < 2; j++ )
                                                     {
-                                                        entityPoint = sideCenter.GetRandomPointWithinDistance( Context.QualityRandom, distanceToGate, distanceToGate );
+                                                        entityPoint = controllerPoint.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
                                                         GameEntity.CreateNew( side, warheadSupressorData, entityPoint, Context );
                                                     }
                                                 }
                                                 break;
+                                        }
+                                    }
+                                    break;
+                                case WorldSideType.Player:
+                                    if ( !haveCreatedController )
+                                    {
+                                        if ( planet.PopulationType == PlanetPopulationType.HumanHomeworld && Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                                        {
+                                            GameEntity.CreateNew( side, controllerData, controllerPoint, Context );
+                                            haveCreatedController = true;
+
+                                            GameEntityTypeData starshipConstructorData = GameEntityTypeDataTable.Instance.GetRowByName( "StarshipConstructor", true, null );
+                                            ArcenPoint starshipConstructorPoint = controllerPoint.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
+                                            GameEntity.CreateNew( side, starshipConstructorData, starshipConstructorPoint, Context );
+
+                                            if ( controllerData.PlanetsWorthOfAIPOnDeath != 0 )
+                                                World_AIW2.Instance.ChangeAIP( controllerData.PlanetsWorthOfAIPOnDeath * ExternalConstants.Instance.Balance_BaseAIPScale, AIPChangeReason.EntityDeath, controllerData, Context );
+
+                                            if ( warpGateData.PlanetsWorthOfAIPOnDeath != 0 )
+                                                World_AIW2.Instance.ChangeAIP( warpGateData.PlanetsWorthOfAIPOnDeath * ExternalConstants.Instance.Balance_BaseAIPScale, AIPChangeReason.EntityDeath, warpGateData, Context );
                                         }
                                     }
                                     break;
@@ -508,10 +576,6 @@ namespace Arcen.AIW2.External
                     {
                         GameEntityTypeData humanKingUnitData = GameEntityTypeDataTable.Instance.GetRandomRowOfSpecialType( Context, SpecialEntityType.HumanKingUnit );
 
-                        AngleDegrees angleToFirstPlayer = angleToAI.Add( AngleDegrees.Create( (FInt)160 ) );
-                        AngleDegrees angleToSecondPlayer = angleToAI.Add( AngleDegrees.Create( (FInt)200 ) );
-                        bool haveFoundFirstPlayer = false;
-
                         for ( int i = 0; i < planet.Combat.Sides.Count; i++ )
                         {
                             CombatSide side = planet.Combat.Sides[i];
@@ -520,8 +584,14 @@ namespace Arcen.AIW2.External
                             {
                                 case WorldSideType.Player:
                                     {
-                                        ArcenPoint sideCenter = center.GetPointAtAngleAndDistance( haveFoundFirstPlayer ? angleToSecondPlayer : angleToFirstPlayer, Context.QualityRandom.Next( wormholeRadius, wormholeRadius ) );
-                                        haveFoundFirstPlayer = true;
+                                        ArcenPoint sideCenter;
+                                        if ( !Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                                            sideCenter = center.GetRandomPointWithinDistance( Context.QualityRandom, wormholeRadius, wormholeRadius );
+                                        else
+                                        {
+                                            int offsetDistance = humanKingUnitData.Radius * 2;
+                                            sideCenter = center.GetRandomPointWithinDistance( Context.QualityRandom, offsetDistance, offsetDistance );
+                                        }
 
                                         GameEntity.CreateNew( side, humanKingUnitData, sideCenter, Context );
 
@@ -529,9 +599,8 @@ namespace Arcen.AIW2.External
                                         for ( int j = 0; j < testShipDatas.Count; j++ )
                                         {
                                             GameEntityTypeData testShipData = testShipDatas[j];
-                                            AngleDegrees angleToTestUnit = angleToFirstPlayer.GetOpposite().Add( AngleDegrees.Create( (FInt)Context.QualityRandom.Next( -35, 35 ) ) );
                                             int distanceToTestUnit = Context.QualityRandom.Next( innerSystemMinimumRadius, innerSystemMaximumRadius );
-                                            ArcenPoint otherPoint = sideCenter.GetPointAtAngleAndDistance( angleToTestUnit, distanceToTestUnit );
+                                            ArcenPoint otherPoint = center.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
                                             GameEntity.CreateNew( side, testShipData, otherPoint, Context );
                                         }
                                     }
@@ -544,7 +613,7 @@ namespace Arcen.AIW2.External
                 #region AIHomeworld
                 case PlanetPopulationType.AIHomeworld:
                     {
-                        GameEntityTypeData aiKingUnitData = GameEntityTypeDataTable.Instance.GetRandomRowOfSpecialType( Context, SpecialEntityType.AIKingUnit );
+                        GameEntityTypeData aiKingUnitData = GameEntityTypeDataTable.Instance.RowsBySpecialType[SpecialEntityType.AIKingUnit][0];
 
                         for ( int i = 0; i < planet.Combat.Sides.Count; i++ )
                         {
@@ -554,7 +623,7 @@ namespace Arcen.AIW2.External
                             {
                                 case WorldSideType.AI:
                                     {
-                                        ArcenPoint sideCenter = center.GetPointAtAngleAndDistance( angleToAI, Context.QualityRandom.Next( innerSystemMinimumRadius, innerSystemMaximumRadius ) );
+                                        ArcenPoint sideCenter = center.GetRandomPointWithinDistance( Context.QualityRandom, innerSystemMinimumRadius, innerSystemMaximumRadius );
                                         GameEntity.CreateNew( side, aiKingUnitData, sideCenter, Context );
                                     }
                                     break;
@@ -578,8 +647,7 @@ namespace Arcen.AIW2.External
 
                 planet.DoForLinkedNeighbors( delegate ( Planet neighbor )
                 {
-                    AngleDegrees angleToNeighbor = planet.GalaxyLocation.GetAngleToDegrees( neighbor.GalaxyLocation );
-                    ArcenPoint wormholePoint = Engine_AIW2.Instance.CombatCenter.GetPointAtAngleAndDistance( angleToNeighbor, wormholeRadius );
+                    ArcenPoint wormholePoint = wormholePlacer.GetPointForWormhole( Context, planet, neighbor );
                     GameEntity wormhole = GameEntity.CreateNew( side, wormholeData, wormholePoint, Context );
                     wormhole.LinkedPlanetIndex = neighbor.PlanetIndex;
                     return DelReturn.Continue;
@@ -600,7 +668,8 @@ namespace Arcen.AIW2.External
                 case PlanetPopulationType.NonHomeworld:
                 case PlanetPopulationType.HumanHomeworld:
                     {
-                        planet.DoInitialOrReconquestDefenseSeeding( Context );
+                        if ( planet.PopulationType != PlanetPopulationType.HumanHomeworld || !Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                            planet.AIDefensePlacer.Implementation.DoInitialOrReconquestDefenseSeeding( Context, planet );
                     }
                     break;
             }
@@ -609,7 +678,12 @@ namespace Arcen.AIW2.External
 
         public void SeedResourceSpot( Planet planet, ArcenSimContext Context, Int32 wormholeRadius, GameEntityTypeData resourceSpotData )
         {
-            CombatSide side = planet.Combat.GetFirstSideOfType( WorldSideType.NaturalObject );
+            WorldSideType sideType;
+            if ( planet.PopulationType != PlanetPopulationType.HumanHomeworld || !Conduct_StartWithFirstPlanetAlreadyCaptured.Instance.IsEnabled )
+                sideType = WorldSideType.NaturalObject;
+            else
+                sideType = WorldSideType.Player;
+            CombatSide side = planet.Combat.GetFirstSideOfType( sideType );
 
             ArcenPoint spotPoint = ArcenPoint.ZeroZeroPoint;
             bool foundIt = false;
@@ -648,13 +722,14 @@ namespace Arcen.AIW2.External
             int innerSystemMinimumRadius = ( ExternalConstants.Instance.Balance_AverageGravWellRadius * FInt.FromParts( 0, 150 ) ).IntValue;
             int innerSystemMaximumRadius = ( ExternalConstants.Instance.Balance_AverageGravWellRadius * FInt.FromParts( 0, 300 ) ).IntValue;
 
+            int revealedAreaAroundHumanHomeworld = 3;
+
             #region Sensor Scramblers
             {
                 planetsToSeedOn.Clear();
                 planetsToSeedOn.AddRange( baseListPlanetsToSeedOn );
                 GameEntityTypeData entityData = GameEntityTypeDataTable.Instance.GetRandomRowWithTag( Context, "SensorScrambler" );
 
-                int revealedAreaAroundHumanHomeworld = 3;
                 int desiredOtherPocketSize = 3;
 
                 if ( humanHomeworld != null )
@@ -689,7 +764,60 @@ namespace Arcen.AIW2.External
                 }
             }
             #endregion
-            
+
+            #region Interesting Strategic Targets at distance-2 from the homeworld
+            {
+                ArcenRandomDrawBag<Planet> drawBag = new ArcenRandomDrawBag<Planet>();
+
+                int targetDistance = revealedAreaAroundHumanHomeworld - 1;
+
+                if ( humanHomeworld != null )
+                {
+                    humanHomeworld.DoForPlanetsWithinXHops( Context, targetDistance, delegate ( Planet planet, int distance )
+                    {
+                        if ( distance != targetDistance )
+                            return DelReturn.Continue;
+                        drawBag.AddItem( planet,1 );
+                        return DelReturn.Continue;
+                    } );
+                }
+
+                ArcenRandomDrawBag<Planet> originalDrawBag = new ArcenRandomDrawBag<Planet>();
+                originalDrawBag.CopyFrom( drawBag );
+
+                GameEntityTypeData goodieData;
+                Planet goodiePlanet;
+
+                if ( drawBag.GetHasItems() )
+                {
+                    goodieData = GameEntityTypeDataTable.Instance.GetRandomRowWithTag( Context, "Flagship" );
+                    goodiePlanet = drawBag.PickRandomItemAndDoNotReplace( Context.QualityRandom );
+                    goodiePlanet.Mapgen_SeedEntity( Context, World_AIW2.Instance.GetNeutralSide(), goodieData, PlanetSeedingZone.InnerSystem );
+                    if ( !drawBag.GetHasItems() )
+                        drawBag.CopyFrom( originalDrawBag );
+                }
+
+                if ( drawBag.GetHasItems() )
+                {
+                    goodieData = GameEntityTypeDataTable.Instance.GetRandomRowWithTag( Context, "Golem" );
+                    goodiePlanet = drawBag.PickRandomItemAndDoNotReplace( Context.QualityRandom );
+                    goodiePlanet.Mapgen_SeedEntity( Context, World_AIW2.Instance.GetNeutralSide(), goodieData, PlanetSeedingZone.InnerSystem );
+                    if ( !drawBag.GetHasItems() )
+                        drawBag.CopyFrom( originalDrawBag );
+                }
+
+                if ( drawBag.GetHasItems() )
+                {
+                    goodieData = GameEntityTypeDataTable.Instance.GetRandomRowWithTag( Context, "AdvancedResearchStation" );
+                    goodiePlanet = drawBag.PickRandomItemAndDoNotReplace( Context.QualityRandom );
+                    goodiePlanet.Mapgen_SeedAIEntity( Context, goodieData, PlanetSeedingZone.InnerSystem );
+                    if ( !drawBag.GetHasItems() )
+                        drawBag.CopyFrom( originalDrawBag );
+                }
+            }
+            #endregion
+
+            #region The bulk of the interesting strategic targets (and a few other things)
             galaxy.Mapgen_SeedSpecialEntities( Context, "AdvancedFactory", 1 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "AdvancedStarshipConstructor", 1 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "ExperimentalFabricator", 5 );
@@ -700,7 +828,8 @@ namespace Arcen.AIW2.External
             galaxy.Mapgen_SeedSpecialEntities( Context, "AdvancedResearchStation", 4 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "NuclearWarheadSilo", 2 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "EMPWarheadSilo", 2 );
-            //galaxy.Mapgen_SeedSpecialEntities( Context, "Golem", 3 );
+            galaxy.Mapgen_SeedSpecialEntities( Context, "LightningWarheadSilo", 2 );
+            galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Golem", 3 );
             galaxy.Mapgen_SeedSpecialEntities( Context, "SpecialForcesSecretNinjaHideout", Math.Max( 1, galaxy.Planets.Count / 10 ) );
             galaxy.Mapgen_SeedSpecialEntities( Context, "NormalPlanetNastyPick", Math.Max( 1, galaxy.Planets.Count / 2 ) );
             galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Flagship", 1, 3, 3, 3, -1 );
@@ -708,6 +837,7 @@ namespace Arcen.AIW2.External
             galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Flagship", 1, 6, 7, 3, -1 );
             galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Flagship", 1, 3, -1, 5, 6 );
             galaxy.Mapgen_SeedSpecialEntities( Context, World_AIW2.Instance.GetNeutralSide(), "Flagship", 1, 3, -1, 3, 4 );
+            #endregion
         }
     }
 

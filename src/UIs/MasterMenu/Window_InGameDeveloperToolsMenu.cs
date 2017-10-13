@@ -22,7 +22,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Give Metal" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGiveSomeMetal" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGiveSomeMetal" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -34,7 +36,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Give Science" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGiveScience" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGiveScience" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -46,10 +50,11 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Give Hacking" );
             }
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 GameCommand command = GameCommand.Create( GameCommandType.Debug_GiveHacking );
-                World_AIW2.Instance.QueueGameCommand( command );
+                World_AIW2.Instance.QueueGameCommand( command, true );
+                return MouseHandlingResult.None;
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
@@ -62,7 +67,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Spawn AI Wave" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugSendNextWave" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugSendNextWave" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -74,7 +81,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Increase AIP" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugIncreaseAIP" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugIncreaseAIP" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -86,7 +95,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Scout All" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "ScoutAll" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "ScoutAll" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -104,7 +115,7 @@ namespace Arcen.AIW2.External
         //        return "+" + Window_InGameDeveloperToolsMenu.scale;
         //    }
 
-        //    public override void HandleClick()
+        //    public override MouseHandlingResult HandleClick()
         //    {
         //        ArcenUI.Instance.ExtraSpecialSuperDuperFudgeFactor += scale;
         //        ArcenDebugging.ArcenDebugLog( "New factor:" + ArcenUI.Instance.ExtraSpecialSuperDuperFudgeFactor );
@@ -123,7 +134,7 @@ namespace Arcen.AIW2.External
         //        return "-" + Window_InGameDeveloperToolsMenu.scale;
         //    }
 
-        //    public override void HandleClick()
+        //    public override MouseHandlingResult HandleClick()
         //    {
         //        ArcenUI.Instance.ExtraSpecialSuperDuperFudgeFactor -= scale;
         //        ArcenDebugging.ArcenDebugLog( "New factor:" + ArcenUI.Instance.ExtraSpecialSuperDuperFudgeFactor );
@@ -142,7 +153,7 @@ namespace Arcen.AIW2.External
         //        return "+scale";
         //    }
 
-        //    public override void HandleClick()
+        //    public override MouseHandlingResult HandleClick()
         //    {
         //        Window_InGameDeveloperToolsMenu.scale *= 10;
         //        ArcenDebugging.ArcenDebugLog( "New scale:" + Window_InGameDeveloperToolsMenu.scale );
@@ -160,7 +171,7 @@ namespace Arcen.AIW2.External
         //        return "-scale";
         //    }
 
-        //    public override void HandleClick()
+        //    public override MouseHandlingResult HandleClick()
         //    {
         //        Window_InGameDeveloperToolsMenu.scale /= 10;
         //        ArcenDebugging.ArcenDebugLog( "New scale:" + Window_InGameDeveloperToolsMenu.scale );

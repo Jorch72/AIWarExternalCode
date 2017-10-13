@@ -4,15 +4,13 @@ using System;
 using System.Collections.Generic;
 using Arcen.AIW2.External;
 
-//namespace must be the name of the DLL!
-namespace AIWarExternalCode
+namespace Arcen.AIW2.External
 {
     public class InitialSetupForDLL : IInitialSetupForDLL
     {
         public void RunInitialSetup()
         {
             ArcenInput.PreInput = new PreInputHandler();
-            ArcenDebugging.ArcenDebugLogSingleLine( "RunInitialSetup for AIWarExternalCode.", Verbosity.DoNotShow );
         }
     }
 

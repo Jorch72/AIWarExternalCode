@@ -15,11 +15,14 @@ namespace Arcen.AIW2.External
 
         public static void HandleInner( Int32 Int1, string InputActionInternalName )
         {
+            if ( ArcenUI.CurrentlyShownWindowsWith_PreventsNormalInputHandlers.Count > 0 )
+                return;
+
             switch ( InputActionInternalName )
             {
                 case "Debug_ToggleConsole":
                     ArcenUI.Instance.ShowingConsole = !ArcenUI.Instance.ShowingConsole;
-                    ArcenUI.Instance.UnitermConsole.SetActive( ArcenUI.Instance.ShowingConsole );
+                    ArcenUI.Instance.UnitermConsoleCanvasObject.SetActive( ArcenUI.Instance.ShowingConsole );
                     if ( ArcenUI.Instance.ShowingConsole )
                         ArcenUI.Instance.UnitermTextbox.ActivateInputField();
                     break;
@@ -43,7 +46,7 @@ namespace Arcen.AIW2.External
                         while ( Engine_Universal.WorkThreadIsRunning )
                             Thread.Sleep( 10 );
                         GameCommand command = GameCommand.Create( GameCommandType.TogglePause );
-                        World_AIW2.Instance.QueueGameCommand( command );
+                        World_AIW2.Instance.QueueGameCommand( command, true );
                     }
                     break;
                 case "Debug_InstantStopSim":
@@ -73,11 +76,11 @@ namespace Arcen.AIW2.External
                         if ( !World_AIW2.Instance.IsPaused )
                         {
                             GameCommand command = GameCommand.Create( GameCommandType.TogglePause );
-                            World_AIW2.Instance.QueueGameCommand( command );
+                            World_AIW2.Instance.QueueGameCommand( command, true );
                         }
                         ArcenCharacterBuffer buffer = new ArcenCharacterBuffer();
                         int count = 0;
-                        Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+                        Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate ( GameEntity selected )
                         {
                             count++;
                             selected.VisualObj.WriteDebugDataTo( buffer );

@@ -11,12 +11,18 @@ namespace Arcen.AIW2.External
     {
         public static Window_InGameOutlineSidebar Instance;
 
-        private static Sprite[] Sprite_MarkLevels = new Sprite[6];
-        private static Sprite[] Sprite_Backgrounds = new Sprite[18];
+        public static Sprite[] Sprite_MarkLevels = new Sprite[6];
+        public static Sprite[] Sprite_Backgrounds = new Sprite[18];
 
-        private const string BUNDLE_NAME = "arcenui";
-        private const string BUNDLE_PATH_OFFICIAL_BASE = "assets/icons/officialgui/official_1_smallonly/{0}.png";
-        private const string BUNDLE_PATH_SIDEBAR_BASE = "assets/arcenui/images/sidebar/{0}.png";
+        public const string BUNDLE_NAME = "arcenui";
+        public const string BUNDLE_PATH_OFFICIAL_BASE = "assets/icons/officialgui/official_1_smallonly/{0}.png";
+        public const string BUNDLE_PATH_SIDEBAR_BASE = "assets/arcenui/images/sidebar/{0}.png";
+
+        public const int PREFER_LEFT = -1;
+        public const int PREFER_RIGHT = 1;
+        public const int PREFER_NEITHER = 0;
+
+        public const int MAX_ENTITIES_PER_ICON = 17;
 
         public Window_InGameOutlineSidebar()
         {
@@ -31,12 +37,82 @@ namespace Arcen.AIW2.External
                 Sprite_Backgrounds[i] = ArcenAssetBundleManager.LoadUnitySpriteFromBundle( BUNDLE_NAME,
                     string.Format( BUNDLE_PATH_SIDEBAR_BASE, "outlinedecal_border_" + i ) );
         }
+        
+        public class tEnemySummary : TextAbstractBase
+        {
+            public static tEnemySummary Instance;
+            public tEnemySummary() { Instance = this; }
 
-        private const int PREFER_LEFT = -1;
-        private const int PREFER_RIGHT = 1;
-        private const int PREFER_NEITHER = 0;
+            public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
+            {
+                WriteSquadAndShipCounts( Buffer, SideRelationship.SidesIAmHostileTowards );
+            }
 
-        public const int MAX_ENTITIES_PER_ICON = 17;
+            public override void OnUpdate() { }
+        }
+
+        public class tPlayerSummary : TextAbstractBase
+        {
+            public static tPlayerSummary Instance;
+            public tPlayerSummary() { Instance = this; }
+
+            public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
+            {
+                WriteSquadAndShipCounts( Buffer, SideRelationship.Self );
+            }
+            public override void OnUpdate() { }
+        }
+
+        public class tAllySummary : TextAbstractBase
+        {
+            public static tAllySummary Instance;
+            public tAllySummary() { Instance = this; }
+
+            public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
+            {
+                WriteSquadAndShipCounts( Buffer, SideRelationship.SidesIAmFriendlyTowards );
+            }
+            public override void OnUpdate() { }
+        }
+
+        public static void WriteSquadAndShipCounts( ArcenDoubleCharacterBuffer Buffer, SideRelationship relationship )
+        {
+            Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
+            if ( planet == null )
+                return;
+
+            CombatSide localSide = planet.Combat.GetSideForWorldSide( World_AIW2.Instance.GetLocalPlayerSide() );
+            
+            int squadResult = 0;
+            FInt strength = FInt.Zero;
+            localSide.DoForRelatedSides( relationship, delegate ( CombatSide side )
+            {
+                if ( relationship == SideRelationship.SidesIAmFriendlyTowards && side == localSide )
+                    return DelReturn.Continue; // when counting "ally" units, don't count my own units
+                side.Entities.DoForEntities( GameEntityCategory.Ship, delegate ( GameEntity ship )
+                {
+                    int shipCount = 1 + ship.GetCurrentExtraShipsInSquad();
+                    strength += ship.TypeData.BalanceStats.StrengthPerShip * shipCount;
+                    strength += ship.GetStrengthOfContentsIfAny();
+                    squadResult++;
+                    return DelReturn.Continue;
+                } );
+                return DelReturn.Continue;
+            } );
+
+            if ( squadResult > 0 )
+            {
+                int strengthAsInt = strength.IntValue;
+                string strengthSuffix = ArcenExternalUIUtilities.GetRoundedNumberWithSuffix( ref strengthAsInt );
+                Buffer
+                    .Add( squadResult )
+                    .Add( " squads (" )
+                    .Add( strengthAsInt )
+                    .Add( strengthSuffix )
+                    .Add( " strength)" )
+                ;
+            }
+        }
 
         public class bsOutlineItems : ImageButtonSetAbstractBase
         {
@@ -44,7 +120,7 @@ namespace Arcen.AIW2.External
             public List<EntityGroup> groups = new List<EntityGroup>();
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
 
@@ -52,20 +128,25 @@ namespace Arcen.AIW2.External
                 if ( !planet.HumansHaveBasicIntel )
                     return;
 
-                float columnWidth = 32 / ArcenUI.Instance.PixelsPerPercent_X;
-                float rowHeight = 32 / ArcenUI.Instance.PixelsPerPercent_Y;
-                float iconWidth = columnWidth * 0.9f;
-                float iconHeight = rowHeight * 0.9f;
+                //float adjustedButtonWidth = 32 / ArcenUI.Instance.PixelsPerPercent_X;
+                //float adjustedButtonHeight = 32 / ArcenUI.Instance.PixelsPerPercent_Y;
+
+                float adjustedButtonWidth = this.Element.ButtonWidth;
+                float adjustedButtonHeight = this.Element.ButtonHeight;
+                if ( ArcenUI.Instance.PixelsPerPercent_X != ArcenUI.Instance.PixelsPerPercent_Y )
+                    adjustedButtonWidth *= ArcenUI.Instance.PixelsPerPercent_Y / ArcenUI.Instance.PixelsPerPercent_X;
                 int currentRow = 0;
                 int currentColumn = 0;
-                int totalColumns = Mathf.FloorToInt( this.Element.Width / columnWidth );
+                int totalColumns = Mathf.FloorToInt( this.Element.Width / adjustedButtonWidth );
                 groups.Clear();
 
                 planet.Combat.DoForEntities( GameEntityCategory.Ship, delegate ( GameEntity entity )
                  {
-                 EntityGroup group;
-                 EntityGroupSideType sideType = ( entity.Side.WorldSide.GetIsLocalSide() ? EntityGroupSideType.Mine :
-                 entity.Side.WorldSide.GetIsFriendlyToLocalSide() ? EntityGroupSideType.Allied : EntityGroupSideType.Enemy );
+                     if ( entity.TypeData.DoesNotNeedSidebarIcon )
+                         return DelReturn.Continue;
+                     EntityGroup group;
+                     EntityGroupSideType sideType = ( entity.Side.WorldSide.GetIsLocalSide() ? EntityGroupSideType.Mine :
+                     entity.Side.WorldSide.GetIsFriendlyToLocalSide() ? EntityGroupSideType.Allied : EntityGroupSideType.Enemy );
                      for ( int i = groups.Count - 1; i >= 0; i-- )
                      {
                          group = groups[i];
@@ -129,8 +210,17 @@ namespace Arcen.AIW2.External
                 int currentImageListIndex = 0;
                 EntityGroupSideType lastSideType = EntityGroupSideType.Unknown;
                 bOutlineItem item = null;
+                bool placedEnemyLabel = false;
+                bool placedPlayerLabel = false;
+                bool placedAllyLabel = false;
+                bool nextItemGetsNewRow = false;
                 for ( int groupIndex = groups.Count - 1; groupIndex >= 0; groupIndex-- )
                 {
+                    if ( nextItemGetsNewRow )
+                    {
+                        currentRow++;
+                        nextItemGetsNewRow = false;
+                    }
                     EntityGroup group = groups[groupIndex];                    
                     if ( currentImageListIndex < this.Element.Images.Count )
                     {
@@ -142,9 +232,10 @@ namespace Arcen.AIW2.External
                         item = new bOutlineItem();
                         Vector2 dummy = Mat.V2_Zero;
                         Vector2 size;
-                        size.x = iconWidth;
-                        size.y = iconHeight;
+                        size.x = adjustedButtonWidth;
+                        size.y = adjustedButtonHeight;
                         Element.AddImageButton( item, size, dummy );
+                        currentImageListIndex = Element.Images.Count;
                     }
 
                     item.EntityGroup = group;
@@ -157,8 +248,8 @@ namespace Arcen.AIW2.External
                             getsOwnLine = true;
                             break;
                     }
-                    if ( group.TypeData.Tags.Contains( "Flagship" ) )
-                        getsOwnLine = true;
+                    //if ( group.TypeData.Tags.Contains( "Flagship" ) )
+                    //    getsOwnLine = true;
                     if ( lastSideType != EntityGroupSideType.Unknown )
                     {
                         if ( lastSideType != group.Side )
@@ -173,27 +264,45 @@ namespace Arcen.AIW2.External
                         }
                     }
                     lastSideType = group.Side;
-                    float x = this.Element.X + ( currentColumn * columnWidth );
-                    float y = this.Element.Y + ( currentRow * rowHeight );
-                    if ( item.Element.X != x || item.Element.Y != y )
+                    float elementX = this.Element.Alignment.XAlignment.Offset;
+                    float elementY = this.Element.Alignment.YAlignment.Offset;
+                    float x = elementX + ( currentColumn * adjustedButtonWidth );
+                    float y = elementY + ( currentRow * adjustedButtonHeight );
+                    if ( elementX != x || elementY != y )
                     {
-                        item.Element.X = x;
-                        item.Element.Y = y;
+                        item.Element.Alignment.XAlignment.Offset = x;
+                        item.Element.Alignment.YAlignment.Offset = y;
                         item.Element.UpdatePositionAndSize();
                     }
                     if ( getsOwnLine )
                     {
                         currentColumn = 0;
-                        currentRow++;
+                        nextItemGetsNewRow = true;
                     }
                     else
                     {
                         currentColumn++;
                         if ( currentColumn >= totalColumns )
                         {
-                            currentRow++;
+                            nextItemGetsNewRow = true;
                             currentColumn = 0;
                         }
+                    }
+
+                    if(group.Side == EntityGroupSideType.Enemy && !placedEnemyLabel)
+                    {
+                        tEnemySummary.Instance.Element.Alignment.YAlignment.Offset = y - tEnemySummary.Instance.Element.Height;
+                        placedEnemyLabel = true;
+                    }
+                    if ( group.Side == EntityGroupSideType.Mine && !placedPlayerLabel )
+                    {
+                        tPlayerSummary.Instance.Element.Alignment.YAlignment.Offset = y - tPlayerSummary.Instance.Element.Height;
+                        placedPlayerLabel = true;
+                    }
+                    if ( group.Side == EntityGroupSideType.Allied && !placedAllyLabel )
+                    {
+                        tAllySummary.Instance.Element.Alignment.YAlignment.Offset = y - tAllySummary.Instance.Element.Height;
+                        placedAllyLabel = true;
                     }
                 }
 
@@ -211,7 +320,7 @@ namespace Arcen.AIW2.External
             }
         }
 
-        private class bOutlineItem : IArcenUI_ImageButton_Controller
+        private class bOutlineItem : ImageButtonAbstractBase
         {
             public ArcenUI_ImageButton Element;
             public EntityGroup EntityGroup;
@@ -227,7 +336,7 @@ namespace Arcen.AIW2.External
             public const int INDEX_FLAIR = 6;
             public const int INDEX_MARK_LEVEL = 7;
 
-            public void UpdateImages( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImage[] SubImages )
+            public override void UpdateContent( ArcenUIWrapperedUnityImage Image, ArcenUI_Image.SubImageGroup SubImages, SubTextGroup SubTexts )
             {
                 if ( this.EntityGroup == null )
                     return;
@@ -238,29 +347,35 @@ namespace Arcen.AIW2.External
                     debugStage = 0;
                     int cnt = this.EntityGroup.EntityCount;
                     if ( cnt > 0 && cnt  < Window_InGameOutlineSidebar.Sprite_Backgrounds.Length )
-                        Image.UpdateWith( Window_InGameOutlineSidebar.Sprite_Backgrounds[cnt] );
+                        Image.UpdateWith( Window_InGameOutlineSidebar.Sprite_Backgrounds[cnt], true );
                     
                     debugStage = 1;
                     GameEntityTypeData typeData = this.EntityGroup.TypeData;
 
                     debugStage = 2;
 
+                    SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_White, true );
+                    //if ( this.EntityGroup.ActualEntities.Count <= 0 )
+                    //    SubImages[INDEX_ICON].WrapperedImage.SetColor( ColorMath.White );
+                    //else
+                    //    SubImages[INDEX_ICON].WrapperedImage.SetColor( this.EntityGroup.ActualEntities[0].Side.WorldSide.TeamColor.UnityColor );
                     switch ( this.EntityGroup.Side )
                     {
                         case EntityGroupSideType.Mine:
-                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Mine );
+                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Mine, true );
                             break;
                         case EntityGroupSideType.Allied:
-                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Allied );
+                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Allied, true );
                             break;
                         default:
-                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Enemy );
+                            SubImages[INDEX_ICON].WrapperedImage.UpdateWith( typeData.GUISprite_Icon_Enemy, true );
                             break;
                     }
+
                     debugStage = 3;
-                    SubImages[INDEX_ICON_BORDER].WrapperedImage.UpdateWith( typeData.GUISprite_IconBorder );
+                    SubImages[INDEX_ICON_BORDER].WrapperedImage.UpdateWith( typeData.GUISprite_IconBorder, true );
                     debugStage = 4;
-                    SubImages[INDEX_FLAIR].WrapperedImage.UpdateWith( typeData.GUISprite_Flair );
+                    SubImages[INDEX_FLAIR].WrapperedImage.UpdateWith( typeData.GUISprite_Flair, true );
 
                     debugStage = 5;
 
@@ -330,7 +445,7 @@ namespace Arcen.AIW2.External
                             break;
                     }
                     SubImages[INDEX_MARK_LEVEL].WrapperedImage.UpdateWith( markLevel <= 0 ? null : 
-                        Window_InGameOutlineSidebar.Sprite_MarkLevels[markLevel] );
+                        Window_InGameOutlineSidebar.Sprite_MarkLevels[markLevel], true );
 
                 }
                 catch ( Exception e )
@@ -339,7 +454,7 @@ namespace Arcen.AIW2.External
                 }
             }
 
-            public void SetElement( ArcenUI_Element Element )
+            public override void SetElement( ArcenUI_Element Element )
             {
                 this.Element = (ArcenUI_ImageButton)Element;
             }
@@ -361,10 +476,10 @@ namespace Arcen.AIW2.External
                 } );
             }
 
-            public void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 if ( this.EntityGroup == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
 
                 bool clearSelectionFirst = false;
                 bool unselectingInstead = false;
@@ -393,7 +508,7 @@ namespace Arcen.AIW2.External
                          {
                              if ( !entity.GetMayBeSelected() || entity.GetIsSelected() )
                                  Engine_AIW2.Instance.PresentationLayer.CenterPlanetViewOnEntity( entity, false );
-                             Engine_AIW2.Instance.ClearSelection();
+                             Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                          }
                      }
                      if ( entity.GetMayBeSelected() )
@@ -405,9 +520,10 @@ namespace Arcen.AIW2.External
                      }
                      return DelReturn.Continue;
                  } );
+                return MouseHandlingResult.None;
             }
 
-            public void HandleMouseover()
+            public override void HandleMouseover()
             {
                 if ( this.EntityGroup != null )
                 {
@@ -423,11 +539,7 @@ namespace Arcen.AIW2.External
                 }
             }
 
-            public void OnUpdate()
-            {
-            }
-
-            public bool GetShouldBeHidden()
+            public override bool GetShouldBeHidden()
             {
                 return this.EntityGroup == null || this.EntityGroup.EntityCount <= 0;
             }

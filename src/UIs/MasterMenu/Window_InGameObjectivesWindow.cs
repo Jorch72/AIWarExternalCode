@@ -23,7 +23,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
@@ -77,6 +77,8 @@ namespace Arcen.AIW2.External
                             elementAsType.AddButton( newButtonController, size, offset );
                         }
 
+                        this.WindowController.Window.SubContainer.Height = Instance.LastComputedObjectives.Count * elementAsType.ButtonHeight;
+
                         elementAsType.ActuallyPutItemsBackInPoolThatAreStillCleared();
                     }
                 }
@@ -98,9 +100,10 @@ namespace Arcen.AIW2.External
                 this.Item.GetTextToShow( buffer );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 this.Item.HandleClick();
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }
@@ -181,7 +184,7 @@ namespace Arcen.AIW2.External
                 #region GainFleetStrength
                 case ObjectiveType.GainFleetStrength:
                     {
-                        WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                        WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                         GameEntity ark = localSide.Entities.GetFirstMatching( SpecialEntityType.HumanKingUnit );
                         if ( ark == null )
                         {
@@ -550,7 +553,7 @@ namespace Arcen.AIW2.External
                         {
                             case ObjectiveSubType.GainFleetStrength_ThroughProduction:
                                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
-                                WorldSide worldSide = World_AIW2.Instance.GetLocalSide();
+                                WorldSide worldSide = World_AIW2.Instance.GetLocalPlayerSide();
                                 CombatSide side = planet.Combat.GetSideForWorldSide( worldSide );
                                 GameEntity producer = null;
                                 side.Entities.DoForEntities( SpecialEntityType.HumanKingUnit, delegate ( GameEntity entity )
@@ -570,14 +573,14 @@ namespace Arcen.AIW2.External
                                 }
                                 if ( producer == null )
                                     break;
-                                Engine_AIW2.Instance.ClearSelection();
+                                Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.AllPlanets );
                                 producer.Select();
-                                Window_InGameBuildMenu.Instance.Open();
-                                Window_InGameCommandsMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameBuildMenu.Instance );
+                                Window_InGameBuildTabMenu.Instance.Open();
+                                Window_InGameCommandsMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameBuildTabMenu.Instance );
                                 break;
                             case ObjectiveSubType.GainFleetStrength_ThroughSpendingScience:
-                                Window_InGameTechMenu.Instance.Open();
-                                Window_InGameBottomMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameTechMenu.Instance );
+                                Window_InGameTechTabMenu.Instance.Open();
+                                Window_InGameBottomMenu.Instance.CloseWindowsOtherThanThisOne( Window_InGameTechTabMenu.Instance );
                                 break;
                             case ObjectiveSubType.GainFleetStrength_ThroughFuel:
                             case ObjectiveSubType.GainFleetStrength_ThroughScience:

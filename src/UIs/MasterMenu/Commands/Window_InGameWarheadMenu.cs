@@ -45,7 +45,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 GameEntity launcher = localSide.Entities.GetFirstMatching( EntityRollupType.KingUnits );
@@ -53,6 +53,7 @@ namespace Arcen.AIW2.External
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
                 Window_InGameWarheadMenu windowController = (Window_InGameWarheadMenu)Element.Window.Controller;
+                if ( windowController != null ) { } //prevent compiler warning
 
                 if ( windowController.PlanetChangedSinceLastButtonSetUpdate )
                 {
@@ -107,22 +108,23 @@ namespace Arcen.AIW2.External
                 buffer.Add( this.Type.InternalName );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 GameEntity launcher = localSide.Entities.GetFirstMatching( EntityRollupType.KingUnits );
                 if ( launcher == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
                 if ( planet == null || planet != launcher.Combat.Planet )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 GameCommand command = GameCommand.Create( GameCommandType.LaunchWarhead );
                 command.RelatedEntityType = this.Type;
                 command.RelatedEntityIDs.Add( launcher.PrimaryKeyID );
                 if ( command.RelatedEntityIDs.Count > 0 )
-                    World_AIW2.Instance.QueueGameCommand( command );
+                    World_AIW2.Instance.QueueGameCommand( command, true );
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }

@@ -22,7 +22,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( World_AIW2.Instance.IsPaused ? "Unpause" : "Pause" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "TogglePause" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "TogglePause" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -34,7 +36,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "+FrameSize (" ).Add( Engine_AIW2.Instance.FrameSizeMultiplier ).Add( ")" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "IncreaseFrameSize" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "IncreaseFrameSize" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -46,7 +50,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "-FrameSize (" ).Add( Engine_AIW2.Instance.FrameSizeMultiplier ).Add( ")" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DecreaseFrameSize" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DecreaseFrameSize" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -63,7 +69,9 @@ namespace Arcen.AIW2.External
                     buffer.Add( Engine_AIW2.Instance.FrameFrequencyMultiplier );
                 buffer.Add( ")" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "IncreaseFrameFrequency" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "IncreaseFrameFrequency" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -81,7 +89,9 @@ namespace Arcen.AIW2.External
                 buffer.Add( ")" );
             }
 
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DecreaseFrameFrequency" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DecreaseFrameFrequency" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }

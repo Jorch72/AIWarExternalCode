@@ -46,10 +46,11 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Open Log" );
             }
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 Process.Start( Engine_Universal.CurrentPlayerDataDirectory + "ArcenDebugLog.txt" );
                 Instance.Close();
+                return MouseHandlingResult.None;
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
@@ -62,9 +63,10 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Ignore" );
             }
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 Instance.Close();
+                return MouseHandlingResult.None;
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
@@ -77,10 +79,11 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Ignore And Stop Reporting" );
             }
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 Instance.IsPermanentlyClosed = true;
                 Instance.Close();
+                return MouseHandlingResult.None;
             }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }

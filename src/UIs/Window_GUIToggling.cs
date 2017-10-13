@@ -24,7 +24,9 @@ namespace Arcen.AIW2.External
                     Buffer.Add( "Hide GUI" );
             }
 
-            public override void HandleClick() { ArcenUI.Instance.InHideGUIMode = !ArcenUI.Instance.InHideGUIMode; }
+            public override MouseHandlingResult HandleClick() { ArcenUI.Instance.InHideGUIMode = !ArcenUI.Instance.InHideGUIMode;
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }

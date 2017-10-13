@@ -14,15 +14,137 @@ namespace Arcen.AIW2.External
     RNG,
     SpanningTreeWithConnections
   }
-
+    /* This is a helper class. It mostly contains routines for "Connect a list of planets
+       according to a given algorithm" and "Place planets in an interesting but
+       pleasing fashion", with a few others */
 
   internal static class BadgerUtilityMethods
   {
+
+    public static int getSettingValueInt(string settingName)
+    {
+      //for a given setting, get the int value for it
+      bool debug = false;
+      ArcenSparseLookup<string, ArcenSetting> lookup = ArcenSettingTable.Instance.LookupByName;
+      ArcenSetting setting = null;
+      if(lookup.GetHasKey(settingName))
+        setting = lookup[settingName];
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine("setting " + settingName + ": retrieving value " + setting.DefaultIntValue, Verbosity.DoNotShow);
+
+      int valueAsInt;
+      if(setting == null)
+        {
+          ArcenDebugging.ArcenDebugLogSingleLine("BUG: setting is not defined ", Verbosity.DoNotShow);
+          return -1;
+        }
+      if ( !Int32.TryParse( setting.TempValue_String, out valueAsInt ) )
+        {
+          if(debug)
+            ArcenDebugging.ArcenDebugLogSingleLine("setting " + settingName + " is not currently initialized. Set it to the default " + setting.DefaultIntValue, Verbosity.DoNotShow);
+          setting.TempValue_String = setting.DefaultIntValue.ToString();
+          valueAsInt = setting.DefaultIntValue;
+        }
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine(settingName + " is " + valueAsInt, Verbosity.DoNotShow);
+      return valueAsInt;
+    }
+
+    public static bool getSettingValueBool(string settingName)
+    {
+      //for a given setting, get the bool value for it
+      ArcenSparseLookup<string, ArcenSetting> lookup = ArcenSettingTable.Instance.LookupByName;
+      ArcenSetting setting = null;
+      if(lookup.GetHasKey(settingName))
+        setting = lookup[settingName];
+
+      bool valueAsBool;
+      if(setting == null)
+        {
+          ArcenDebugging.ArcenDebugLogSingleLine("BUG: setting is not defined ", Verbosity.DoNotShow);
+          return false;
+        }
+      valueAsBool = setting.TempValue_Bool;
+      return valueAsBool;
+    }
+
+    public static ArcenSetting getSettingByName(string settingName)
+    {
+      //return the ArcenSetting for the setting name
+      ArcenSetting setting = null;
+      ArcenSparseLookup<string, ArcenSetting> settingMap =  ArcenSettingTable.Instance.LookupByName;
+      if(settingMap.GetHasKey(settingName))
+        {
+          setting = settingMap[settingName];
+        }
+      return setting;
+    }
+
+    internal static void removeSomeLinksBetweenPlanets(int maxToRemove, List<Planet> planetsForMap, ArcenSimContext Context)
+      {
+        //attempts to remove up to maxToRemove links at random
+        int linksToRemove = maxToRemove;
+        int linksRemovedSoFar = 0;
+        int numAttempts = 0;
+        int maxAttempts = 100;
+        while(linksRemovedSoFar < linksToRemove)
+          {
+            numAttempts++;
+            if(numAttempts > maxAttempts)
+              break;
+            int planetIdxForDel = Context.QualityRandom.NextWithInclusiveUpperBound( 0, planetsForMap.Count - 1 );
+            Planet planetToDelLink = planetsForMap[planetIdxForDel];
+            List<Planet> neighbors = BadgerUtilityMethods.getNeighborList(planetToDelLink);
+            if(neighbors.Count < 2) //skip planets with only one neighbor
+              continue; 
+            int neighborIdx = Context.QualityRandom.NextWithInclusiveUpperBound( 0, neighbors.Count - 1 );
+            Planet neighbor = neighbors[neighborIdx];
+            planetToDelLink.RemoveLinkTo(neighbor);
+            if(BadgerUtilityMethods.isGalaxyFullyConnected(planetsForMap))
+              {
+                linksRemovedSoFar++;
+              }
+            else
+              planetToDelLink.AddLinkTo(neighbor); //since this unconnected the galaxy, put the link back
+             }
+      }
+    internal static List<Planet> getNeighborList(Planet planet)
+      {
+        List<Planet> neighbors = new List<Planet>();
+        planet.DoForLinkedNeighbors( delegate (Planet neighbor)
+                                            {
+                                              neighbors.Add(neighbor);
+                                              return DelReturn.Continue;
+                                            } );
+        return neighbors;
+      }
+    internal static bool isGalaxyFullyConnected(List<Planet> planetsForMap)
+    {
+          //check for map connectivity (which will be done after stripping a few connections out)
+          Planet firstPlanet = planetsForMap[0];
+          List<Planet> connectedPlanets = new List<Planet>(); //only allocate one of these, then we'll clear it each time
+
+          connectedPlanets.Add(firstPlanet);
+
+          for(int i = 0; i < connectedPlanets.Count; i++)
+            {
+              Planet planetToCheck = connectedPlanets[i];
+              planetToCheck.DoForLinkedNeighbors( delegate (Planet neighbor)
+                                                  {
+                                                    if(!connectedPlanets.Contains(neighbor))
+                                                       connectedPlanets.Add(neighbor);
+                                                    return DelReturn.Continue;
+                                                  } );
+            }
+          if(connectedPlanets.Count == planetsForMap.Count)
+            return true;
+          return false;
+    }
     //Note this needs to take a method of giving probabilities
     internal static LinkMethod getRandomLinkMethod(int percentSpanningTree, int percentGabriel,
                                                    int percentRNG, int percentSpanningTreeWithConnections,
                                                    ArcenSimContext Context)
-      {
+    {
         if(percentSpanningTreeWithConnections + percentRNG + percentGabriel + percentSpanningTree != 100)
           {
             ArcenDebugging.ArcenDebugLogSingleLine("BUG! percentages given to getRandomLinkMethod do not add up to 100", Verbosity.DoNotShow);
@@ -40,7 +162,7 @@ namespace Arcen.AIW2.External
         else if(linkingMethodRand < percentGabriel + percentRNG + percentSpanningTree + percentSpanningTreeWithConnections)
           val = LinkMethod.SpanningTreeWithConnections;
         return val;
-      }
+    }
     
     //adds a circle of points
     internal static List<ArcenPoint> addCircularPoints(int numPoints, ArcenSimContext Context, ArcenPoint circleCenter, int circleRadius,
@@ -62,35 +184,34 @@ namespace Arcen.AIW2.External
           }
         return pointsForThisCircle;
       }
-
-		//adds an ellipse of points
-		internal static List<ArcenPoint> addElipticalPoints(int numPoints, ArcenSimContext Context, ArcenPoint ellipseCenter, int ellipseMajorAxis,
-			int ellipseMinorAxis, double rotationRad, ref List<ArcenPoint> pointsSoFar) {
-			float startingAngle = Context.QualityRandom.NextFloat(1, 359);
-			List<ArcenPoint> pointsForThisCircle = new List<ArcenPoint>();
-			for(int i = 0; i < numPoints; i++) {
-				float angle = (360f / (float)numPoints) * (float)i; // yes, this is theoretically an MP-sync problem, but a satisfactory 360 arc was simply not coming from the FInt approximations and I'm figuring the actual full-sync at the beginning of the game should sync things up before they matter
-				angle += startingAngle;
-				if(angle >= 360f)
-					angle -= 360f;
-				double angleRad = angle / 180 * Math.PI;
-				ArcenPoint pointOnRing = ellipseCenter;
-				double tan = Math.Sin(angleRad) / Math.Cos(angleRad);
-				double x = ellipseMajorAxis * ellipseMinorAxis / Math.Sqrt(ellipseMinorAxis * ellipseMinorAxis + ellipseMajorAxis * ellipseMajorAxis * tan * tan);
-				//heck if I know why this has to be done, but the ellipse gets twisted without it
+    //adds an ellipse of points
+    internal static List<ArcenPoint> addElipticalPoints(int numPoints, ArcenSimContext Context, ArcenPoint ellipseCenter, int ellipseMajorAxis,
+                                                        int ellipseMinorAxis, double rotationRad, ref List<ArcenPoint> pointsSoFar) {
+      float startingAngle = Context.QualityRandom.NextFloat(1, 359);
+      List<ArcenPoint> pointsForThisCircle = new List<ArcenPoint>();
+      for(int i = 0; i < numPoints; i++) {
+        float angle = (360f / (float)numPoints) * (float)i; // yes, this is theoretically an MP-sync problem, but a satisfactory 360 arc was simply not coming from the FInt approximations and I'm figuring the actual full-sync at the beginning of the game should sync things up before they matter
+        angle += startingAngle;
+        if(angle >= 360f)
+          angle -= 360f;
+        double angleRad = angle / 180 * Math.PI;
+        ArcenPoint pointOnRing = ellipseCenter;
+        double tan = Math.Sin(angleRad) / Math.Cos(angleRad);
+        double x = ellipseMajorAxis * ellipseMinorAxis / Math.Sqrt(ellipseMinorAxis * ellipseMinorAxis + ellipseMajorAxis * ellipseMajorAxis * tan * tan);
+        //heck if I know why this has to be done, but the ellipse gets twisted without it
         if(angle >= 90) x = -x;
-				if(angle >= 270) x = -x;
-				double y = x * Math.Sin(angleRad) / Math.Cos(angleRad);
-				double xn = x * Math.Cos(rotationRad) - y * Math.Sin(rotationRad);
-				double yn = x * Math.Sin(rotationRad) + y * Math.Cos(rotationRad);
-				pointOnRing.X += (int)xn;
-				pointOnRing.Y += (int)yn;
-				pointsForThisCircle.Add(pointOnRing);
-				pointsSoFar.Add(pointOnRing);/**/
-			}
-			return pointsForThisCircle;
-		}
-    
+        if(angle >= 270) x = -x;
+        double y = x * Math.Sin(angleRad) / Math.Cos(angleRad);
+        double xn = x * Math.Cos(rotationRad) - y * Math.Sin(rotationRad);
+        double yn = x * Math.Sin(rotationRad) + y * Math.Cos(rotationRad);
+        pointOnRing.X += (int)xn;
+        pointOnRing.Y += (int)yn;
+        pointsForThisCircle.Add(pointOnRing);
+        pointsSoFar.Add(pointOnRing);/**/
+      }
+      return pointsForThisCircle;
+    }
+
     internal static List<ArcenPoint> addGrid()
       {
         return null;
@@ -102,7 +223,6 @@ namespace Arcen.AIW2.External
                                              int minDistanceBetweenPlanets, ref List<ArcenPoint> pointsSoFar, List<ArcenPoint> pointsToAvoid, int distanceFromAvoidance, int divisibleByX = 0)
     {
         //keeps track of previously added planets as well
-        string s;
         int numberFailuresAllowed = 1000;
         List<ArcenPoint> pointsForThisCircle = new List<ArcenPoint>();
         List<ArcenPoint> pointsToAvoidWithoutThisCenter = new List<ArcenPoint>(pointsToAvoid);
@@ -112,15 +232,8 @@ namespace Arcen.AIW2.External
              ArcenPoint testPoint = circleCenter.GetRandomPointWithinDistance(Context.QualityRandom, 0, circleRadius);
              if(divisibleByX != 0)
                {
-                 //  s = System.String.Format("addPointsInCircle: previous {0},{1}",
-                 //                                 testPoint.X, testPoint.Y);
-                 // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow); 
                  testPoint.X -= testPoint.X%divisibleByX;
                  testPoint.Y -= testPoint.Y%divisibleByX;
-                 // s = System.String.Format("addPointsInCircle: Adjusting planet to {0},{1}",
-                 //                                 testPoint.X, testPoint.Y);
-
-//                 ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow); 
                }
              if ( UtilityMethods.HelperDoesPointListContainPointWithinDistance( pointsSoFar, testPoint, minDistanceBetweenPlanets))
                {
@@ -147,39 +260,111 @@ namespace Arcen.AIW2.External
 
              pointsForThisCircle.Add(testPoint);
              pointsSoFar.Add(testPoint);
-              // s = System.String.Format("addPointsInCircle: Adding planet {0} at location {1},{2}", i,
-              //                          testPoint.X, testPoint.Y);
-              // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
            }
          return pointsForThisCircle;
     }
 
+    internal static ArcenPoint  GetRandomPointWithinRectangle( ArcenPoint topL, ArcenPoint topR,
+                                                                          ArcenPoint bottomL, ArcenPoint bottomR,
+                                                                          ArcenSimContext Context)
+    {
+      int minLegalX = Math.Min( topL.X, bottomL.X);
+      int maxLegalX = Math.Min( topR.X, bottomR.X);
+      int minLegalY = Math.Min( bottomL.Y, bottomR.Y);
+      int maxLegalY = Math.Min( topL.Y, topR.Y);
+      int newX = Context.QualityRandom.Next( minLegalX, maxLegalX );
+      int newY = Context.QualityRandom.Next( minLegalY, maxLegalY );
+      ArcenPoint newPoint = ArcenPoint.Create( newX, newY );
+      return newPoint;
+    }
 
+    //adds in a rectangle to roughly cover the screen
+    //The X and Y values here were arrived at by crude trial and error
+    internal static List<ArcenPoint> addPointsInStartScreen(int numPoints, ArcenSimContext Context, int minDistanceBetweenPlanets,
+                                                            ref List<ArcenPoint> pointsSoFar, int divisibleByX = 1)
+      {
+            int x = 700;
+            int y = 400;
+            ArcenPoint galaxyCenter = Engine_AIW2.GalaxyCenter;
+            ArcenPoint topL = ArcenPoint.Create(-x,y);
+            ArcenPoint topR = ArcenPoint.Create(x ,y);
+            ArcenPoint bottomL = ArcenPoint.Create(-x,y);
+            ArcenPoint bottomR = ArcenPoint.Create(x,-y);
+            return BadgerUtilityMethods.addPointsInRectangle(numPoints, Context, minDistanceBetweenPlanets, ref pointsSoFar,
+                                                             divisibleByX, topL, topR, bottomL, bottomR);
+
+      }
+
+    internal static List<ArcenPoint> addPointsInRectangle(int numPoints, ArcenSimContext Context, int minDistanceBetweenPlanets,
+                                                          ref List<ArcenPoint> pointsSoFar, int divisibleByX, ArcenPoint topL, ArcenPoint topR,
+                                                          ArcenPoint bottomL, ArcenPoint bottomR)
+      {
+        //keeps track of previously added planets as well
+        int numberFailuresAllowed = 1000;
+        List<ArcenPoint> pointsForThisRectangle = new List<ArcenPoint>();
+        for (int i = 0; i < numPoints; i++)
+          {
+            ArcenPoint testPoint = GetRandomPointWithinRectangle(topL, topR,
+                                                                 bottomL, bottomR, Context);
+            if (divisibleByX != 0)
+              {
+                testPoint.X -= testPoint.X % divisibleByX;
+                testPoint.Y -= testPoint.Y % divisibleByX;
+              }
+            if (UtilityMethods.HelperDoesPointListContainPointWithinDistance(pointsSoFar, testPoint, minDistanceBetweenPlanets))
+              {
+                i--;
+                numberFailuresAllowed--;
+                if (numberFailuresAllowed <= 0)
+                  {
+                    numberFailuresAllowed = 1000;
+                    minDistanceBetweenPlanets -= 10;
+                    if (minDistanceBetweenPlanets < 0)
+                      {
+                        ArcenDebugging.ArcenDebugLogSingleLine("COULD NOT GENERATE A PLANET BAD JUJU GURU #253421", Verbosity.ShowAsError);
+                        return pointsForThisRectangle;
+                      }
+                  }
+                continue;
+              }
+            pointsForThisRectangle.Add(testPoint);
+            pointsSoFar.Add(testPoint);
+          }
+        return pointsForThisRectangle;
+    }
+
+    //Add points within a circle defined by circleCenter and circleRadius
     //It gives a more ordered appearance when the points are on "more reasonable" numbers, so include the
     //divisible
     internal static List<ArcenPoint> addPointsInCircle(int numPoints, ArcenSimContext Context, ArcenPoint circleCenter, int circleRadius,
                                              int minDistanceBetweenPlanets, ref List<ArcenPoint> pointsSoFar, int divisibleByX = 0)
     {
       //keeps track of previously added planets as well
-      string s;
       int numberFailuresAllowed = 1000;
       List<ArcenPoint> pointsForThisCircle = new List<ArcenPoint>();
+      bool debug = false;
       for (int i = 0; i < numPoints; i++)
       {
-        // ArcenDebugging.ArcenDebugLogSingleLine("generating planet #" + i + " with minDistance " + minDistanceBetweenPlanets, Verbosity.ShowAsInfo);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine("generating planet #" + i + " with minDistance " + minDistanceBetweenPlanets, Verbosity.ShowAsInfo);
 
         ArcenPoint testPoint = circleCenter.GetRandomPointWithinDistance(Context.QualityRandom, 0, circleRadius);
         if (divisibleByX != 0)
         {
-          //  s = System.String.Format("addPointsInCircle: previous {0},{1}",
-          //                                 testPoint.X, testPoint.Y);
-          // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow); 
+          if(debug)
+            {
+              string s = System.String.Format("addPointsInCircle: previous {0},{1}",
+                                       testPoint.X, testPoint.Y);
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
           testPoint.X -= testPoint.X % divisibleByX;
           testPoint.Y -= testPoint.Y % divisibleByX;
-          // s = System.String.Format("addPointsInCircle: Adjusting planet to {0},{1}",
-          //                                 testPoint.X, testPoint.Y);
-
-          //                 ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow); 
+          if(debug)
+            {
+              string s = System.String.Format("addPointsInCircle: Adjusting planet to {0},{1}",
+                                       testPoint.X, testPoint.Y);
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+              }
         }
         if (UtilityMethods.HelperDoesPointListContainPointWithinDistance(pointsSoFar, testPoint, minDistanceBetweenPlanets))
         {
@@ -187,23 +372,27 @@ namespace Arcen.AIW2.External
           numberFailuresAllowed--;
           if (numberFailuresAllowed <= 0)
           {
+            //If we have exceeded the number of allowed failures,
+            //decrease the minDistance and retry
             numberFailuresAllowed = 1000;
             minDistanceBetweenPlanets -= 10;
-            if (minDistanceBetweenPlanets < 0)
+            if (minDistanceBetweenPlanets < 10)
             {
               ArcenDebugging.ArcenDebugLogSingleLine("COULD NOT GENERATE A PLANET BAD JUJU GURU #253421", Verbosity.ShowAsError);
-
               return pointsForThisCircle;
             }
-
           }
           continue;
         }
         pointsForThisCircle.Add(testPoint);
         pointsSoFar.Add(testPoint);
-         //s = System.String.Format("addPointsInCircle: Adding planet {0} at location {1},{2}", i,
-         //                         testPoint.X, testPoint.Y);
-         //ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+        if(debug)
+          {
+
+            string s = System.String.Format("addPointsInCircle: Adding planet {0} at location {1},{2}", i,
+                                     testPoint.X, testPoint.Y);
+            ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+          }
       }
       return pointsForThisCircle;
     }
@@ -214,13 +403,12 @@ namespace Arcen.AIW2.External
     //if numRandomConnections == -1 then "use an appropriate number"
     internal static void addRandomConnections(List<Planet> planetsForMap, int numRandomConnections, ArcenSimContext Context, int minimumHops)
     {
-      string s;
-
       int firstPlanetIdx = 0;
       int secondPlanetIdx = 0;
       List<int> usedPlanetsForConnections = new List<int>();
       int maxRetries = 1000;
       int numRetries = 0;
+      bool debug = false;
       if(numRandomConnections == -1)
         {
           if(planetsForMap.Count < 20)
@@ -238,16 +426,21 @@ namespace Arcen.AIW2.External
           else
             numRandomConnections = 8;
         }
-
-      // s = System.String.Format("Adding {0} random connections", numRandomConnections);
-      // ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+      if(debug)
+        {
+          string s = System.String.Format("Adding {0} random connections", numRandomConnections);
+          ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+        }
       for(int i = 0; i < numRandomConnections; i++)
         {
           do{
             firstPlanetIdx = Context.QualityRandom.Next(0, planetsForMap.Count);
             //make sure we don't use this planet twice
-            // s = System.String.Format("Attempt at first planet: {0} ", firstPlanetIdx);
-            // ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+            if(debug)
+              {
+                string s = System.String.Format("Attempt at first planet: {0} ", firstPlanetIdx);
+                ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+              }
 
             for(int j = 0; j < usedPlanetsForConnections.Count; j++)
               {
@@ -255,8 +448,11 @@ namespace Arcen.AIW2.External
                   firstPlanetIdx = -1;
               }
           }while(firstPlanetIdx == -1);
-          //          s = System.String.Format("First random planet: {0}", firstPlanetIdx);
-          //          ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+          if(debug)
+            {
+              string s = System.String.Format("First random planet: {0}", firstPlanetIdx);
+              ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+            }
 
           //lets get all the planets within X hops of the first planet,
           //to make sure we get an interesting link
@@ -265,9 +461,10 @@ namespace Arcen.AIW2.External
           do{
             minimumHops--; //decrease the hops until we get enough planets to work with
             neighbors = getNeighbors(firstPlanetIdx, minimumHops, planetsForMap);
-
           }while(planetsForMap.Count - neighbors.Length > numRandomConnections - i);
 
+          //use the neighborhood generated above to find a potential planet
+          //to link to the first planet
           do{
             secondPlanetIdx = Context.QualityRandom.Next(0, planetsForMap.Count);
             if(secondPlanetIdx == firstPlanetIdx)
@@ -306,11 +503,13 @@ namespace Arcen.AIW2.External
 
                   if(Mat.LineSegmentIntersectsLineSegment(p1, p2, crossP1, crossP2, 10))
                     {
-                      // s = System.String.Format("Planets {0} ({4},{5}) and {1} ({6},{7}) connection overlaps with {2}-{3} ({8},{9})-({10},{11}). {12} planets found so far",
-                      //                          firstPlanetIdx, secondPlanetIdx, crossIdx1, crossIdx2,
-                      //                          p1.X, p1.Y, p2.X, p2.Y, crossP1.X, crossP1.Y, crossP2.X, crossP2.Y, i);
-                      // ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
-
+                      if(debug)
+                        {
+                          string s = System.String.Format("Planets {0} ({4},{5}) and {1} ({6},{7}) connection overlaps with {2}-{3} ({8},{9})-({10},{11}). {12} planets found so far",
+                                                   firstPlanetIdx, secondPlanetIdx, crossIdx1, crossIdx2,
+                                                   p1.X, p1.Y, p2.X, p2.Y, crossP1.X, crossP1.Y, crossP2.X, crossP2.Y, i);
+                          ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+                        }
                       wouldLinkCrossOtherPlanets = true;
                       crossIdx2 = planetsForMap.Count;
                       crossIdx1 = planetsForMap.Count;
@@ -325,6 +524,7 @@ namespace Arcen.AIW2.External
             }
           else
             {
+              //Found a valid link, create it
               firstPlanet.AddLinkTo(secondPlanet);
               usedPlanetsForConnections.Add(firstPlanetIdx);
               usedPlanetsForConnections.Add(secondPlanetIdx);
@@ -333,12 +533,18 @@ namespace Arcen.AIW2.External
           if(numRetries > maxRetries)
             {
               numRetries = 0;
-              // s = System.String.Format("Exceeded connection limit {0}", maxRetries);
-              // ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
-
-              if(minimumHops > 0)
+              if(debug)
+                {
+                  string s = System.String.Format("Exceeded retry limit with {0} hop minimum; retry", minimumHops);
+                  ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
+                }
+              if(minimumHops > 2)
                 {
                   minimumHops--; //make it easier to find matches
+                }
+              else
+                {
+                  return;
                 }
             }
         }
@@ -348,10 +554,9 @@ namespace Arcen.AIW2.External
     internal static int[] getNeighbors(int planetIdx, int degreeOfNeighbors, List<Planet>planetsForMap)
     {
         bool debug = false;
-        string s;
         if(debug)
           {
-            s = System.String.Format("returning list of all planets {0} or fewer hops from {1}", degreeOfNeighbors, planetIdx);
+            string s = System.String.Format("returning list of all planets {0} or fewer hops from {1}", degreeOfNeighbors, planetIdx);
             ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
           }
         Planet testPlanet = planetsForMap[planetIdx];
@@ -371,7 +576,7 @@ namespace Arcen.AIW2.External
                 neighborsSoFar++;
                 if(debug)
                   {
-                    s = System.String.Format("{0} --> one hop {1} ({2} neighbors so far)", planetIdx, i, neighborsSoFar);
+                    string s = System.String.Format("{0} --> one hop {1} ({2} neighbors so far)", planetIdx, i, neighborsSoFar);
                     ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                   }
               }
@@ -390,10 +595,9 @@ namespace Arcen.AIW2.External
                 int planetIdxForNeighbor = neighbors[i];
                 if(debug)
                   {
-                    s = System.String.Format("Checking for connections to {0}", planetIdxForNeighbor);
+                    string s = System.String.Format("Checking for connections to {0}", planetIdxForNeighbor);
                     ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                   }
-                int planetsChecked = 0;
                 for(int j = 0; j < planetsForMap.Count -1; j++)
                   {
                     //check this planet (a neighbor) for all connections that
@@ -404,7 +608,7 @@ namespace Arcen.AIW2.External
                       {
                         if(debug)
                           {
-                            s = System.String.Format(" {0} is on the list already, skip it", j);
+                            string s = System.String.Format(" {0} is on the list already, skip it", j);
                             ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                           }
                         continue;
@@ -412,7 +616,7 @@ namespace Arcen.AIW2.External
 
                     if(debug)
                       {
-                        s = System.String.Format("Checking {0} against {1} (out of {2} total planets). We have {3} neighbors so far", planetIdxForNeighbor, j, planetsForMap.Count, neighborsSoFar);
+                        string s = System.String.Format("Checking {0} against {1} (out of {2} total planets). We have {3} neighbors so far", planetIdxForNeighbor, j, planetsForMap.Count, neighborsSoFar);
                         ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                       }
 
@@ -422,7 +626,7 @@ namespace Arcen.AIW2.External
                       {
                         if(debug)
                           {
-                            s = System.String.Format("{0} is directly linked to {1} (neighborsSoFar {2} newNeighbors {3}", planetIdxForNeighbor, j, neighborsSoFar, newNeighbors);
+                            string s = System.String.Format("{0} is directly linked to {1} (neighborsSoFar {2} newNeighbors {3}", planetIdxForNeighbor, j, neighborsSoFar, newNeighbors);
                             ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                           }
 
@@ -430,7 +634,7 @@ namespace Arcen.AIW2.External
                         newNeighbors++;
                         if(debug)
                           {
-                            s = System.String.Format("{0} --> {1} hop {2}", planetIdxForNeighbor, degreeOfNeighbors, j);
+                            string s = System.String.Format("{0} --> {1} hop {2}", planetIdxForNeighbor, degreeOfNeighbors, j);
                             ArcenDebugging.ArcenDebugLogSingleLine( s, Verbosity.DoNotShow);
                           }
                       }
@@ -441,7 +645,7 @@ namespace Arcen.AIW2.External
           }
         return neighbors;
     }
-    
+
     //checks if element is already in array. I don't always want to look at every
     //element
     internal static bool isNeighborAlready(int [] neighborList, int numElemToCheck, int element)
@@ -453,9 +657,7 @@ namespace Arcen.AIW2.External
         }
       return false;
     }
-    /* This is my helper class. It mostly contains routines for "Connect a list of planets
-       according to a given graph theory algorithm" and "Place planets in an interesting but
-       pleasing fashion", with a few others */
+
     internal static List<Planet> convertPointsToPlanets(List<ArcenPoint> vertices, Galaxy galaxy, ArcenSimContext Context)
     {
       List<Planet> planetsForMap = new List<Planet>();
@@ -467,7 +669,7 @@ namespace Arcen.AIW2.External
       return planetsForMap;
     }
     /* This returns a matrix where matrix[i][j] == 1 means point i and point j should be connected 
-       Has the same algorithm as createMinimumSpanningTree, but a seperate implementation */
+       Has the same algorithm as createMinimumSpanningTree, but it doesn't do the linking. */
     internal static int[,] createMinimumSpanningTreeLinks(List<ArcenPoint> pointsForGraph)
     {
         int [,] connectionArray;
@@ -481,7 +683,7 @@ namespace Arcen.AIW2.External
           }
         List<int>verticesNotInTree = new List<int>();
         List<int>verticesInTree = new List<int>();
-        string s;
+
         // ArcenDebugging.ArcenDebugLogSingleLine("Creating minimum spanning tree now", Verbosity.DoNotShow);
         for(int i = 0; i < pointsForGraph.Count; i++)
           verticesNotInTree.Add(i);
@@ -583,7 +785,6 @@ namespace Arcen.AIW2.External
               connectionArray[i,j] = 0;
             }
         }
-        string s;
         //Here i and j iterate over potential pairs. For each potential pair, iterate over k,
         //which is every other point, to make sure k is not too close to i and j
         for(int i = 0; i < pointsForGraph.Count ; i++)
@@ -635,12 +836,13 @@ namespace Arcen.AIW2.External
           }
         return connectionArray;
     }
+    /* This returns a matrix where matrix[i][j] == 1 means point i and point j should be connected 
+       Has the same algorithm as createGabrielGraph, but a seperate implementation */
     internal static int[,]  createRNGGraphLinks(List<ArcenPoint> pointsForGraph)
     {
       //Algorithm: for each pair of nodes i and j
         //           check if any other node k is closer to both i and j than they are to eachother
         //           if no such k exists, link i and j
-        string s;
         int [,] connectionArray;
         connectionArray = new int[pointsForGraph.Count, pointsForGraph.Count];
         for(int i = 0; i < pointsForGraph.Count; i++)
@@ -651,13 +853,11 @@ namespace Arcen.AIW2.External
               }
         }
 
-        int planetsLinked = 0;
         for(int i = 0; i < pointsForGraph.Count ; i++)
           {
             //the minus one is because the last planet in the last can't compare itself to itself
             // s = System.String.Format("Outer Loop: point {0} of {1}", i, pointsForGraph.Count);
             // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-            bool hasOneLinkBeenMade = false;
             for(int j = 0; j < pointsForGraph.Count  ; j++)
               {
                 if(i == j)
@@ -704,7 +904,6 @@ namespace Arcen.AIW2.External
     {
         List<int>verticesNotInTree = new List<int>();
         List<int>verticesInTree = new List<int>();
-        string s;
         // ArcenDebugging.ArcenDebugLogSingleLine("Creating minimum spanning tree now", Verbosity.DoNotShow);
         for(int i = 0; i < planetsForMap.Count; i++)
           verticesNotInTree.Add(i);
@@ -795,7 +994,6 @@ namespace Arcen.AIW2.External
         //                          Check that no other planets are in the circle connecting the two nodes
         //                              If no other planets, link these two planets
         //see htts://en.wikipedia.org/wiki/Gabriel_graph
-        string s;
         //Here i and j iterate over potential pairs. For each potential pair, iterate over k,
         //which is every other planet, to make sure k is not too close to i and j
         for(int i = 0; i < planetsForMap.Count ; i++)
@@ -852,14 +1050,11 @@ namespace Arcen.AIW2.External
         //Algorithm: for each pair of nodes i and j
         //           check if any other node k is closer to both i and j than they are to eachother
         //           if no such k exists, link i and j
-        string s;
-        int planetsLinked = 0;
         for(int i = 0; i < planetsForMap.Count ; i++)
           {
             //the minus one is because the last planet in the last can't compare itself to itself
             // s = System.String.Format("Outer Loop: Planet {0} of {1}", i, planetsForMap.Count);
             // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-            bool hasOneLinkBeenMade = false;
             for(int j = 0; j < planetsForMap.Count  ; j++)
               {
                 if(i == j)
@@ -910,7 +1105,6 @@ namespace Arcen.AIW2.External
     //have at most one group of minPlanetsPerGroup
     internal static  List<int> allocatePlanetsIntoGroups(int minPlanetsPerGroup, int maxPlanetsPerGroup, int planetsToAllocate, bool onlyOneOfLowestMin, ArcenSimContext Context)
     {
-      string s;
         int maxPossibleGroups = planetsToAllocate/minPlanetsPerGroup;
         int planetsLeftToAllocate = planetsToAllocate;
         List<int> planetsPerGroup = new List<int>();
@@ -966,13 +1160,12 @@ namespace Arcen.AIW2.External
       {
         //find the planet X in currentPlanets closest to centerOfNewPlanets,
         //then find the planet in newPlanets closest to X, then link them
-        string s;
         int[] distanceFromCurrentToNew = new int[currentPlanets.Count];
         int[] distanceFromNewToCurrent = new int[newPlanets.Count];
-        bool debug = true;
+        bool debug = false;
         if(debug)
           {
-            s = System.String.Format("Comparing {0} planets (current) with {1} planets (new)", currentPlanets.Count, newPlanets.Count);
+            string s = System.String.Format("Comparing {0} planets (current) with {1} planets (new)", currentPlanets.Count, newPlanets.Count);
             ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
           }
         for(int i = 0; i < currentPlanets.Count; i++)
@@ -983,7 +1176,7 @@ namespace Arcen.AIW2.External
         int secondClosestCurrentIdx = findNextValueInList(distanceFromCurrentToNew, distanceFromCurrentToNew[closestCurrentIdx] + 1, currentPlanets.Count);;
         if(debug)
           {
-            s = System.String.Format("current Closest planet {0}, second closest {1}", closestCurrentIdx, secondClosestCurrentIdx);
+            string s = System.String.Format("current Closest planet {0}, second closest {1}", closestCurrentIdx, secondClosestCurrentIdx);
             ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
           }
         Planet closestToNewPlanets = currentPlanets[closestCurrentIdx];
@@ -998,7 +1191,7 @@ namespace Arcen.AIW2.External
         int secondClosestNewIdx = findNextValueInList(distanceFromNewToCurrent, distanceFromNewToCurrent[closestNewIdx] + 1, newPlanets.Count);
         if(debug)
           {
-            s = System.String.Format("new Closest planet {0}, second closest {1}", closestNewIdx, secondClosestNewIdx);
+            string s = System.String.Format("new Closest planet {0}, second closest {1}", closestNewIdx, secondClosestNewIdx);
             ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
           }
         closestToNewPlanets.AddLinkTo(newPlanets[closestNewIdx]);
@@ -1035,7 +1228,7 @@ namespace Arcen.AIW2.External
   }
 
 
-  //Graph generators work as follows:
+//Graph generators work as follows:
 //Select a random set of vertices (planets)
 //Then for use a chosen method to link the planets
 
@@ -1046,8 +1239,8 @@ namespace Arcen.AIW2.External
     bool gabriel;
     bool spanning;
     bool rng;
+    bool debug = false;
     int radiusForPlanetPlacement;
-    int[,] distanceMatrix; //distance between any two planets
     int numPlanetsDesired;
     public override void Generate( Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType )
     {
@@ -1056,26 +1249,43 @@ namespace Arcen.AIW2.External
       spanning = false;
       rng = false;
       string mapName = mapType.InternalName;
-      string s;
-      numberToSeed = 80;
+      //numberToSeed =  BadgerUtilityMethods.getSettingValueInt("NumPlanets");
+      //if(numberToSeed == 0)
+      //  numberToSeed = 80;
       numPlanetsDesired = numberToSeed;
-      if ( ArcenStrings.Equals(mapName, "Dreamcatcher" ))
+      int linkingMethodNum =  BadgerUtilityMethods.getSettingValueInt("SimpleLinkMethod");
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine("Value from simpleLinkMethod was " + linkingMethodNum, Verbosity.DoNotShow);
+      if(linkingMethodNum == 0)
+        linkingMethodNum = 1;
+      if ( linkingMethodNum == 1)
         {
-          s =  System.String.Format( "Using generating a gabriel graph for Dreamcatcher,  {0} planets", numberToSeed );
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+          if(debug)
+            {
+              string s =  System.String.Format( "Using a random neighborhood graph for Simple,  {0} planets", numberToSeed );
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
+          rng = true;
+        }
+
+      if ( linkingMethodNum == 2)
+        {
+          if(debug)
+            {
+              string s =  System.String.Format( "Using generating a gabriel graph for Dreamcatcher,  {0} planets", numberToSeed );
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
           gabriel = true;
         }
-      if ( ArcenStrings.Equals(mapName, "Constellation" ))
+      if ( linkingMethodNum == 3)
         {
-          s =  System.String.Format( "Using a spanning tree for Constellation,  {0} planets", numberToSeed );
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+          if(debug)
+            {
+
+              string s =  System.String.Format( "Using a spanning tree for Constellation,  {0} planets", numberToSeed );
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
           spanning = true;
-        }
-      if ( ArcenStrings.Equals(mapName, "Simple" ))
-        {
-          s =  System.String.Format( "Using a random neighborhood graph for Simple,  {0} planets", numberToSeed );
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-          rng = true;
         }
 
       vertices = new List<ArcenPoint>();
@@ -1093,10 +1303,15 @@ namespace Arcen.AIW2.External
       if(gabriel)
         {
           BadgerUtilityMethods.createGabrielGraph(planetsForMap);
+          //remove a few links at random
+          BadgerUtilityMethods.removeSomeLinksBetweenPlanets(10, planetsForMap, Context);
         }
       if(rng)
         {
           BadgerUtilityMethods.createRNGGraph(planetsForMap);
+          //remove a few links at random
+          BadgerUtilityMethods.removeSomeLinksBetweenPlanets(2, planetsForMap, Context);
+
         }
       if(spanning)
         {
@@ -1125,72 +1340,75 @@ namespace Arcen.AIW2.External
         }
       }
 
-    
-
-    
     //this function is a great place for tuning the eventual map
     //There's a lot of worthwhile experimentation to do here
     public void setUpPoints(int numberToSeed, ArcenSimContext Context)
       {
         //My first pass for this just steals the code from intraClusterPlanetPoints
-        string s;
-        ArcenDebugging.ArcenDebugLogSingleLine("Generating poitns in setUpPoints", Verbosity.DoNotShow);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine("Generating poitns in setUpPoints", Verbosity.DoNotShow);
         int minimumDistanceBetweenPlanets = 50;
+        bool circlePlacement = false; //we can distribute in either a circle or a rectangle
+        if(circlePlacement)
+          {
+            if(numberToSeed < 40)
+              radiusForPlanetPlacement = 400;
+            else if(numberToSeed <= 60)
+              radiusForPlanetPlacement = 450;
+            else if(numberToSeed <= 80)
+              radiusForPlanetPlacement = 550;
+            else if(numberToSeed <= 100)
+              radiusForPlanetPlacement = 600;
+            else
+              radiusForPlanetPlacement = 700;
+            if(gabriel || rng)
+              {
+                //It looks better for these maps if things are more spread out
+                radiusForPlanetPlacement += 100; 
+              }
+            //Here is my first pass (oneBigCircle) and a second attempt
+            //where I spread things out a bit more
+            bool useOneBigCircle = false;
+            if(useOneBigCircle)
+              {
+                ArcenPoint Center =  Engine_AIW2.GalaxyCenter;
 
-        if(numberToSeed < 40)
-          radiusForPlanetPlacement = 400;
-        else if(numberToSeed <= 60)
-          radiusForPlanetPlacement = 450;
-        else if(numberToSeed <= 80)
-          radiusForPlanetPlacement = 550;
-        else if(numberToSeed <= 100)
-          radiusForPlanetPlacement = 600;
+                BadgerUtilityMethods.addPointsInCircle(numberToSeed, Context, Center, radiusForPlanetPlacement,
+                                                       minimumDistanceBetweenPlanets, ref vertices);
+                if(debug)
+                  ArcenDebugging.ArcenDebugLogSingleLine("points generated in a big circle", Verbosity.DoNotShow);
+              }
+            else
+              {
+                if(debug)
+                  ArcenDebugging.ArcenDebugLogSingleLine("points generated from multiple circles", Verbosity.DoNotShow);
+                // if(gabriel || rng)
+                //   radiusForPlanetPlacement -= 100;
+                ArcenPoint p1 = ArcenPoint.Create(0, 200);
+                ArcenPoint p2 = ArcenPoint.Create(200, 0);
+                ArcenPoint p3 = ArcenPoint.Create(-200, 0 );
+                ArcenPoint p4 = ArcenPoint.Create(0, -200);
+                int seedsPerCircle = numberToSeed / 4;
+                int extraPoints = numberToSeed % 4;
+                //             ArcenDebugging.ArcenDebugLogSingleLine("using p1", Verbosity.DoNotShow);
+                BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p1, radiusForPlanetPlacement,
+                                                     minimumDistanceBetweenPlanets, ref vertices);
+                //              ArcenDebugging.ArcenDebugLogSingleLine("using p2", Verbosity.DoNotShow);
+                BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p2, radiusForPlanetPlacement,
+                                                       minimumDistanceBetweenPlanets, ref  vertices);
+                //              ArcenDebugging.ArcenDebugLogSingleLine("using p3", Verbosity.DoNotShow);
+                BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p3, radiusForPlanetPlacement,
+                                                       minimumDistanceBetweenPlanets, ref vertices);
+                //              ArcenDebugging.ArcenDebugLogSingleLine("using p4", Verbosity.DoNotShow);
+                BadgerUtilityMethods.addPointsInCircle(seedsPerCircle + extraPoints, Context, p4, radiusForPlanetPlacement,
+                                                       minimumDistanceBetweenPlanets, ref vertices);
+              }
+            }
         else
-          radiusForPlanetPlacement = 700;
-         if(gabriel || rng)
-           {
-             //It looks better for these maps if things are more spread out
-             radiusForPlanetPlacement += 100; 
-           }
-         //Here is my first pass (oneBigCircle) and a second attempt
-         //where I spread things out a bit more
-         bool useOneBigCircle = false;
-         if(useOneBigCircle)
-           {
-             ArcenPoint Center =  Engine_AIW2.GalaxyCenter;
-
-             BadgerUtilityMethods.addPointsInCircle(numberToSeed, Context, Center, radiusForPlanetPlacement,
-                                                 minimumDistanceBetweenPlanets, ref vertices);
-             ArcenDebugging.ArcenDebugLogSingleLine("points generated in a big circle", Verbosity.DoNotShow);
-           }
-         else
-           {
-             ArcenDebugging.ArcenDebugLogSingleLine("points generated from multiple circles", Verbosity.DoNotShow);
-             // if(gabriel || rng)
-             //   radiusForPlanetPlacement -= 100;
-             ArcenPoint p1 = ArcenPoint.Create(0, 200);
-             ArcenPoint p2 = ArcenPoint.Create(200, 0);
-             ArcenPoint p3 = ArcenPoint.Create(-200, 0 );
-             ArcenPoint p4 = ArcenPoint.Create(0, -200);
-             int seedsPerCircle = numberToSeed / 4;
-             int extraPoints = numberToSeed % 4;
-//             ArcenDebugging.ArcenDebugLogSingleLine("using p1", Verbosity.DoNotShow);
-             BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p1, radiusForPlanetPlacement,
-                                                     minimumDistanceBetweenPlanets, ref vertices);
-//              ArcenDebugging.ArcenDebugLogSingleLine("using p2", Verbosity.DoNotShow);
-             BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p2, radiusForPlanetPlacement,
-                                                     minimumDistanceBetweenPlanets, ref  vertices);
-//              ArcenDebugging.ArcenDebugLogSingleLine("using p3", Verbosity.DoNotShow);
-             BadgerUtilityMethods.addPointsInCircle(seedsPerCircle, Context, p3, radiusForPlanetPlacement,
-                                                     minimumDistanceBetweenPlanets, ref vertices);
-//              ArcenDebugging.ArcenDebugLogSingleLine("using p4", Verbosity.DoNotShow);
-             BadgerUtilityMethods.addPointsInCircle(seedsPerCircle + extraPoints, Context, p4, radiusForPlanetPlacement,
-                                                     minimumDistanceBetweenPlanets, ref vertices);
-           }
+          {
+            BadgerUtilityMethods.addPointsInStartScreen(numberToSeed, Context, minimumDistanceBetweenPlanets, ref vertices);
+          }
       }
-    
-    
-
   }
 
 
@@ -1199,29 +1417,36 @@ namespace Arcen.AIW2.External
 
     public override void Generate( Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType )
     {
-      numberToSeed = 40;
       bool linkNormally = true;
       bool linkRNG = false;
       bool linkSpanning = false;
       bool linkGabriel = false;
-      string s;
       //this map type is vaguely like solar systems, but it's intended to be a different
       //sort of style. The layout is
       //One central circle, surrounded by a bunch of smaller circles. Every point in the center connects to its
       //outer circle. So in a Solar System POV, the central circle are the Suns, the outer circle are its planets orbiting
       //but we have this layout (instead of the suns at the center of the orbiting planets) because it's much more readable
-      ArcenDebugging.ArcenDebugLogSingleLine("Welcome to the circle generator\n" , Verbosity.DoNotShow);
-      string mapName = mapType.InternalName; 
-     if ( ArcenStrings.Equals( mapName, "Geode" ) ) 
+      //numberToSeed =  BadgerUtilityMethods.getSettingValueInt("NumPlanets");
+      //if(numberToSeed == 0)
+      //  numberToSeed = 80;
+      string mapName = mapType.InternalName;
+      int linkingMethodNum =  BadgerUtilityMethods.getSettingValueInt("SolarSystemsLinkMethod");
+      if(linkingMethodNum == 0)
+        linkingMethodNum = 1;
+      if ( linkingMethodNum == 1) //the default
+        linkNormally = true;
+      if ( linkingMethodNum == 2)
         {
           linkNormally = false;
-          int randomNumber = Context.QualityRandom.NextWithInclusiveUpperBound( 0, 10 );
-          if(randomNumber < 5)
-            linkGabriel = true;
-          else
-            linkRNG = true;
+          linkRNG = true;
         }
-      if ( ArcenStrings.Equals( mapName, "Haystack") ) 
+      if ( linkingMethodNum == 3)
+        {
+          linkNormally = false;
+          linkGabriel = true;
+        }
+
+      if ( linkingMethodNum == 4)
         {
           linkNormally = false;
           linkSpanning = true;
@@ -1261,8 +1486,6 @@ namespace Arcen.AIW2.External
           //create all the outer planets for this circle
           List<Planet> planetsForThisCircle = makeCircle(galaxy, Context,
                                                                    planetsPerCircle[i], getRadiusOfSmallCircle(planetsPerCircle[i]),  centerOfOuterCircles[i]);
-          s = System.String.Format("Getting links for outer planets for Sun {0}", i);
-          ArcenDebugging.ArcenDebugLogSingleLine("getting links for these outer planets",Verbosity.DoNotShow);
           if(linkNormally)
             {
               //link the planets of the solar system (aka outer circle)
@@ -1274,7 +1497,7 @@ namespace Arcen.AIW2.External
       if(linkSpanning)
         {
           BadgerUtilityMethods.createMinimumSpanningTree(galaxy.Planets);
-          BadgerUtilityMethods.addRandomConnections(galaxy.Planets, -1, Context, 5);
+          BadgerUtilityMethods.addRandomConnections(galaxy.Planets, 5, Context, 5);
         }
       if(linkGabriel)
         {
@@ -1292,15 +1515,12 @@ namespace Arcen.AIW2.External
     private List<ArcenPoint> getCenterOfOuterCircles(Galaxy galaxy, ArcenSimContext Context, int outerCircles, int outerRadius, ArcenPoint circleCenter,
                                                      out List<ArcenPoint> innerCirclePoints, int innerRadius)
       {
-        string s;
-
         innerCirclePoints = new List<ArcenPoint>();
         //shamelessly stolen ;-)
         AngleDegrees angleBetweenRingPlanet = AngleDegrees.Create( (FInt)360 / (FInt)outerCircles );
         AngleDegrees ringAngle = AngleDegrees.Create( (FInt)Context.QualityRandom.NextWithInclusiveUpperBound( 10, 350 ) );
 
         List<ArcenPoint> outerCircleCenters = new List<ArcenPoint>();
-        Planet newPlanetInRing;
         bool flipOffsetForNextRingPlanet = false;
         int offsetOuterFlip = 10;
         //We need to stagger the outer planet radii once there are enough of them
@@ -1311,17 +1531,12 @@ namespace Arcen.AIW2.External
 
         for(int i = 0; i < outerCircles; i++)
           {
-            s = System.String.Format( "getCenterOfOuterCircles: circle {0} of {1}", i,outerCircles);
-            ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-            //            ArcenPoint outerPoint = circleCenter.GetPointAtAngleAndDistance( ringAngle, outerRadius +  (flipOffsetForNextRingPlanet ? 10 : 20 ));
             ArcenPoint innerPoint = circleCenter.GetPointAtAngleAndDistance( ringAngle, innerRadius +  (flipOffsetForNextRingPlanet ? 15 : 30 ));
             ArcenPoint outerPoint = circleCenter.GetPointAtAngleAndDistance( ringAngle, outerRadius +  (flipOffsetForNextRingPlanet ? offsetOuterFlip : 0 ));
-            //ArcenPoint innerPoint = circleCenter.GetPointAtAngleAndDistance( ringAngle, innerRadius );
             outerCircleCenters.Add( outerPoint);
             innerCirclePoints.Add(innerPoint);
             flipOffsetForNextRingPlanet = !flipOffsetForNextRingPlanet;
             ringAngle = ringAngle.Add( angleBetweenRingPlanet );
-
           }
         return outerCircleCenters;
       }
@@ -1331,13 +1546,8 @@ namespace Arcen.AIW2.External
       //takes a planet in the inner circle and an outer circle. Link the inner planet and the closest outer planet
       int minDistanceSoFar=9999;
       int indexOfMinDistance = -1;
-      string s = System.String.Format( "linking inner planet to its outer circle");
-      ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
       for(int i = 0; i < outerCircle.Count; i++)
         {
-          s = System.String.Format( "Checking if planet {0} is closest", i);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-
           Planet outerPlanet = outerCircle[i];
           int distance = Mat.DistanceBetweenPoints(innerCirclePlanet.GalaxyLocation,
                                                    outerPlanet.GalaxyLocation);
@@ -1356,9 +1566,6 @@ namespace Arcen.AIW2.External
     private List<Planet> makeCircle(Galaxy galaxy, ArcenSimContext Context, int planetsOnCircle, int radius, ArcenPoint circleCenter)
     {
       //Generate a connected circle of planets around the circleCenter with a given radius
-      string s;
-//      s = System.String.Format( "Creating Circle of {0] planets centered on ({1},{2}) at radius {3}",
-//                                planetsOnCircle, circleCenter.X, circleCenter.Y, radius);
       PlanetType planetType = PlanetType.Normal;
       //7) Compute average angle for next step from 360/planets_left
       AngleDegrees angleBetweenRingPlanet = AngleDegrees.Create( (FInt)360 / (FInt)planetsOnCircle );
@@ -1370,19 +1577,19 @@ namespace Arcen.AIW2.External
       ArcenPoint linePoint;
       Planet newPlanetInRing;
       bool flipOffsetForNextRingPlanet = false;
-
-      s = System.String.Format( "Creating Circle of {0}  planets centered on {1},{2}",//centered on ({1},{2}) at radius {3}",
-                                planetsOnCircle,  circleCenter.X, circleCenter.Y);
-      ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+      bool debug = false;
+      if(debug)
+        {
+         string s = System.String.Format( "Creating Circle of {0}  planets centered on {1},{2}",//centered on ({1},{2}) at radius {3}",
+                                    planetsOnCircle,  circleCenter.X, circleCenter.Y);
+         ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+        }
 
       for(int i = 0; i < planetsOnCircle; i++)
         {
           //-- compute point on line from origin at angle at target radius +40
           linePoint = circleCenter.GetPointAtAngleAndDistance( ringAngle, radius +  (flipOffsetForNextRingPlanet ? 15 : 30 ));
-          s = System.String.Format( "   Placing planet {0}",//centered on ({1},{2}) at radius {3}",
-                                    i);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-          
+
           //-- place planet there
           newPlanetInRing = galaxy.AddPlanet( planetType, linePoint, Context );
 
@@ -1391,7 +1598,6 @@ namespace Arcen.AIW2.External
 
           flipOffsetForNextRingPlanet = !flipOffsetForNextRingPlanet;
           ringAngle = ringAngle.Add( angleBetweenRingPlanet );
-
         }
       return ringPlanets;
     }
@@ -1399,23 +1605,11 @@ namespace Arcen.AIW2.External
     private List<Planet> makeCircle(Galaxy galaxy, ArcenSimContext Context, List<ArcenPoint> planetPoints)
     {
       //Generate a connected circle of planets around the circleCenter with a given radius
-      string s;
-//      s = System.String.Format( "Creating Circle of {0] planets centered on ({1},{2}) at radius {3}",
-//                                planetsOnCircle, circleCenter.X, circleCenter.Y, radius);
       PlanetType planetType = PlanetType.Normal;
-
-      s = System.String.Format( "Creating Circle of {0}  planets from an already generated list",//centered on ({1},{2}) at radius {3}",
-                                planetPoints.Count);
-      ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
       List<Planet> ringPlanets = new List<Planet>();
 
       for(int i = 0; i < planetPoints.Count; i++)
         {
-          //-- compute point on line from origin at angle at target radius +40
-          s = System.String.Format( "   Placing planet {0}",//centered on ({1},{2}) at radius {3}",
-                                    i);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-
           //-- place planet there
           Planet newPlanetInRing = galaxy.AddPlanet( planetType, planetPoints[i], Context );
           ringPlanets.Add(newPlanetInRing);
@@ -1423,7 +1617,6 @@ namespace Arcen.AIW2.External
       return ringPlanets;
     }
 
-    
     private int getRadiusOfSmallCircle(int smallCircle)
       {
         int radius;
@@ -1435,8 +1628,6 @@ namespace Arcen.AIW2.External
           radius = 65;
         else if(smallCircle < 7)
           radius = 75;
-//        else if(smallCircle < 8)
-//          radius = 90;
         else
           radius = 100;
         return radius;
@@ -1475,38 +1666,37 @@ namespace Arcen.AIW2.External
     }
   }
 
-    public class Mapgen_Test : Mapgen_Base
+    public class Mapgen_Tutorial : Mapgen_Base
     {
-    /*The Test class is intended as a teaching exercise. To create a new map generator,
+    /*This class is intended as a teaching exercise. To create a new map generator,
       you must declase a class that implements IMapGenerator. It has a "Generate" function that is
       called by the main AI War 2 code that actually creates the map. The galaxy map is laid out on a giant grid.
       The center of the galaxy is (0,0) and you can have both positive and negative coordinates.
 
       The input to the Generate function are as follows. The "Galaxy" object is what you populate with Planets
-      to create the map for your game. I don't know what the Context is. The numberToSeed is the number of planets,
-      and the mapType is something you (the coder) can use if you want to have multiple map types sharing
-      a similar codebase. You can look at the RootLatticeGenerator for an example of one IMapGenerator sharing
+      to create the map for your game. The Context is used to generate random numbers (and I'm sure many other things).
+      The numberToSeed is the number of planets, and the mapType is something you (the coder)
+      can use if you want to have multiple map types sharing a similar codebase.
+      You can look at the RootLatticeGenerator for an example of one IMapGenerator sharing
       multiple mapTypes.
 
     This example code generates a bunch of random planets simply connected
 
     One critical thing to avoid is that all planets cannot be connected. If so then you will get an
     error. See Mantis bug 19086
-    
-    To have this entry appear as a selection option, add an entry like 
 
-   <map_type name="Test"
-              display_name="Test"
-              description="~*~"
-              dll_name="AIWarExternalCode"
-              type_name="Arcen.AIW2.External.Mapgen_Test"
+    To have this entry appear as a selection option in the Game Start Screen, add an entry like 
+     <map_type name="Tutorial" 
+              display_name="ExampleForAspiringModders" <=== this will be the name that appears in Game Select
+              description="~*~" <==== This doesn't do anything yet
+              dll_name="AIWarExternalCode" <== must be External Code
+              type_name="Arcen.AIW2.External.Mapgen_Tutorial" <=== the name of this class
   >
   </map_type>
 
-to GameData/Configuration/MapType/KDL_MapTypes.xml
+to GameData/Configuration/MapType/YourFile_MapTypes.xml
 
 */
-      //Galaxy and Context are always passed in. numberToSeed is the number of planets to create
         public override void Generate( Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType )
         {
           string s; //this is used for debugging printouts later in this function
@@ -1527,15 +1717,16 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
           ArcenPoint originPlanetPoint = Engine_AIW2.GalaxyCenter; //this is 0,0.
           Planet originPlanet = galaxy.AddPlanet(planetType, originPlanetPoint, Context);
           ArcenDebugging.ArcenDebugLogSingleLine("populate PlanetPoints list\n" , Verbosity.DoNotShow);
-          planetPoints.Add( ArcenPoint.Create( 0, 100)); //so this point has X=0 and Y=100
-          planetPoints.Add( ArcenPoint.Create( 500, 0)); // X=500, Y=0
-          planetPoints.Add( ArcenPoint.Create( 600, 100));
-          planetPoints.Add( ArcenPoint.Create( -100, -100));
-          planetPoints.Add( ArcenPoint.Create( 0, -600));
-          planetPoints.Add( ArcenPoint.Create( -100, 0));
+           planetPoints.Add( ArcenPoint.Create( 0, 100)); //so this point has X=0 and Y=100
+           planetPoints.Add( ArcenPoint.Create( 500, 0)); // X=500, Y=0
+           planetPoints.Add( ArcenPoint.Create( 600, 100));
+           planetPoints.Add( ArcenPoint.Create( -100, -100));
+           planetPoints.Add( ArcenPoint.Create( 0, -600));
+           planetPoints.Add( ArcenPoint.Create( -100, 0));
+
+          numberToSeed = planetPoints.Count;//reset numberToSeed for this example
           int distance = Mat.DistanceBetweenPoints(planetPoints[0], planetPoints[1]); //This is how to check the distance between Points
           ArcenDebugging.ArcenDebugLogSingleLine("I have created my points\n" , Verbosity.DoNotShow);
-          Planet firstPlanet;
           Planet previousPlanet = null;
           for(int i = 0; i < numberToSeed -1; i++)
             {
@@ -1575,126 +1766,206 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
 
        This galaxy type also implements ClustersMini, wherein the regions are tightly packed
     */
+
+    bool debug = false;
+    bool veryVerboseDebug = false;
     public override void Generate( Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType )
     {
+
+      //numberToSeed =  BadgerUtilityMethods.getSettingValueInt("NumPlanets");
+      //if(numberToSeed == 0)
+      //  numberToSeed = 80;
       if(numberToSeed < 20)
         numberToSeed = 20;
-      numberToSeed = 80;
-      bool isClustersMini = false;
+
+      int percentForOneCircle = 20;
+      int circleDone = -1;
+      bool isAsteroid = false;
+      bool addSomeExtraLinks = false; //for clustersMini,
+                                      //which is normally linked via spanning tree
       string mapName = mapType.InternalName;
-      if ( ArcenStrings.Equals( mapName, "ClustersMini") ) 
-        isClustersMini = true;
-      PlanetType planetType = PlanetType.Normal;
+      if ( ArcenStrings.Equals( mapName, "Asteroid") ) 
+        isAsteroid = true;
+
+      int numClustersHint = 2;
+      int nebulaConnectivity = 2; //tunes the connectivity algorithms for Nebula
+
+      //These parameters are tuned based on the numClustersHint
       int minPlanetsPerRegion = 6;
       int maxPlanetsPerRegion = 17;
-      bool onlyOneOfSmallestRegion = false;
-      int totalRegionRadius = 510;
-      int radiusPerRegion = 210;
-      int distanceBetweenRegions = 210;
+      int radiusPerRegion = 130;
+      int distanceBetweenRegions = 360;
       int minDistanceBetweenPlanets = 60;
-      string s;
-      int alignmentNumber = 10; //align all points on numbers divisible by this value. It makes things look more organized
 
-      if(isClustersMini)
+            //get the user requested settings
+      nebulaSettingUpdates(out  numClustersHint, out nebulaConnectivity,  isAsteroid);
+      if(isAsteroid)
         {
-          minPlanetsPerRegion = 5;
-          maxPlanetsPerRegion = 9;
-          radiusPerRegion = 150;
-          distanceBetweenRegions = 350;
+          if(numClustersHint == 1)
+            {
+              //Few clusters, so each one is larger
+              minPlanetsPerRegion = 7;
+              maxPlanetsPerRegion = 12;
+              radiusPerRegion = 140;
+              distanceBetweenRegions = 380;
+
+            }
+          if(numClustersHint == 2)
+            {
+              minPlanetsPerRegion = 5;
+              maxPlanetsPerRegion = 10;
+              radiusPerRegion = 130;
+              distanceBetweenRegions = 360;
+            }
+          if(numClustersHint == 3)
+            {
+              minPlanetsPerRegion = 4;
+              maxPlanetsPerRegion = 7;
+              radiusPerRegion = 120;
+              distanceBetweenRegions = 340;
+            }
+        }
+      else
+        {
+          /* Nebula map mode */
+          if(numClustersHint == 1)
+            {
+              //Few clusters, so each one is larger
+              minPlanetsPerRegion = 11;
+              maxPlanetsPerRegion = 21;
+              radiusPerRegion = 220;
+              distanceBetweenRegions = 340;
+
+            }
+          if(numClustersHint == 2)
+            {
+              minPlanetsPerRegion = 6;
+              maxPlanetsPerRegion = 18;
+              radiusPerRegion = 210;
+              distanceBetweenRegions = 180;
+            }
+          if(numClustersHint == 3)
+            {
+              minPlanetsPerRegion = 5;
+              maxPlanetsPerRegion = 13;
+              radiusPerRegion = 190;
+              distanceBetweenRegions = 170;
+            }
+
+
+        }
+      if(isAsteroid)
+        addSomeExtraLinks = BadgerUtilityMethods.getSettingValueBool("addBonusLinksAsteroid");
+
+      if(debug)
+        {
+          string s = System.String.Format("minPlanetsPerRegion: " + minPlanetsPerRegion + " maxPlanetsPerRegion " + maxPlanetsPerRegion + " radiusPerRegion " + radiusPerRegion + " distanceBetweenRegions " + distanceBetweenRegions);
+          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
         }
       
+      bool onlyOneOfSmallestRegion = false;
+
+      int alignmentNumber = 10; //align all points on numbers divisible by this value. It makes things look more organized
       List<int> regionsOfPlanets = BadgerUtilityMethods.allocatePlanetsIntoGroups(minPlanetsPerRegion,
                                                                                   maxPlanetsPerRegion, numberToSeed, onlyOneOfSmallestRegion,
                                                                                   Context);
-
-      s = System.String.Format("Planets divvied between {0} regions", regionsOfPlanets.Count);
-      ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+      if(debug)
+        {
+          string s = System.String.Format("Planets divvied between {0} regions --> ", regionsOfPlanets.Count);
+          for(int i = 0; i < regionsOfPlanets.Count; i++)
+            {
+              s += "(" +i +"="+ regionsOfPlanets[i] + ") ";
+            }
+          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+        }
 
       //now for each region, find a center point (chosen randomly)
       //then allocate the points
       List<ArcenPoint> regionCenters = new List<ArcenPoint>();
-      //what if sometimes we want a different structure?
-      //say a rectangle or something. Should investigate...
-      BadgerUtilityMethods.addPointsInCircle(regionsOfPlanets.Count,
-                                             Context,  Engine_AIW2.GalaxyCenter, totalRegionRadius,
-                                             distanceBetweenRegions, ref regionCenters, alignmentNumber);
-      ArcenDebugging.ArcenDebugLogSingleLine("Region Centers found", Verbosity.DoNotShow);
-      for(int i = 0; i < regionCenters.Count; i++)
+      BadgerUtilityMethods.addPointsInStartScreen(regionsOfPlanets.Count, Context,
+                                                  distanceBetweenRegions, ref regionCenters,alignmentNumber);
+      if(veryVerboseDebug)
         {
-          s = System.String.Format("{0}, {1}", regionCenters[i].X, regionCenters[i].Y);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+          for(int i = 0; i < regionCenters.Count; i++)
+            {
+              string s = System.String.Format("Region Center: {0}, {1}", regionCenters[i].X, regionCenters[i].Y);
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
         }
       List<ArcenPoint> allPoints = new List<ArcenPoint>();
       List<List<Planet>> allPlanetsPerRegion = new List<List<Planet>>();
       List<Planet> allPlanets = new List<Planet>();
+
+      /* Tuning parameters for how to link the various Nebulae/Asteroids */
+      
       //percentages for linking within a region
-      int percentSpanningTreeInRegion = 10;
-      int percentSpanningTreeWithConnectionsInRegion = 10;
-      int percentGabrielInRegion = 40;
-      int percentRNGInRegion = 40;
+      
+      //settings for the Nebula
+      int percentSpanningTreeInRegion;
+      int percentSpanningTreeWithConnectionsInRegion;
+      int percentGabrielInRegion;
+      int percentRNGInRegion;
       //percentages for linking the different regions (inter-region)
-      int percentSpanningTreeBetweenRegion = 0;
-      int percentSpanningTreeWithConnectionsBetweenRegion = 20;
-      int percentGabrielBetweenRegion = 40;
-      int percentRNGBetweenRegion = 40;
-
-      if(isClustersMini)
-        {
-           percentSpanningTreeInRegion = 0;
-           percentSpanningTreeWithConnectionsInRegion = 0;
-           percentGabrielInRegion = 100;
-           percentRNGInRegion = 0;
-           
-           percentSpanningTreeBetweenRegion = 100;
-           percentSpanningTreeWithConnectionsBetweenRegion = 0;
-           percentGabrielBetweenRegion = 0;
-           percentRNGBetweenRegion = 0;
-        }
-
+      LinkMethod regionLinkMethod = LinkMethod.Gabriel;
+      getNebulaLinkingPercentages(isAsteroid, nebulaConnectivity, addSomeExtraLinks,
+                                  out  percentSpanningTreeInRegion, out percentSpanningTreeWithConnectionsInRegion,
+                                  out  percentGabrielInRegion, out  percentRNGInRegion,
+                                  out  regionLinkMethod);
+      
+      
 
       for(int i = 0; i < regionCenters.Count; i++)
         {
+          //For each region, add planets and then link the region together
           List<ArcenPoint> pointsForThisRegion;
+          if(isAsteroid && circleDone == -1 &&
+             regionsOfPlanets[i] > 4 && regionsOfPlanets[i] < 9 &&
+             percentForOneCircle > Context.QualityRandom.Next(0,100)) // chance of a circle for Asteroids
+            {
+              if(debug)
+                ArcenDebugging.ArcenDebugLogSingleLine("Adding a circle", Verbosity.DoNotShow);
+              //sometimes we might want to just make a circle
+              circleDone = i;
+              List<ArcenPoint> temp = new List<ArcenPoint>();
+              pointsForThisRegion = BadgerUtilityMethods.addCircularPoints(regionsOfPlanets[i], Context, regionCenters[i],
+                                                      radiusPerRegion, ref temp);
+            }
+          else
+            pointsForThisRegion = BadgerUtilityMethods.addPointsInCircleWithExclusion(regionsOfPlanets[i], Context, regionCenters[i], radiusPerRegion,
+                                                                                      minDistanceBetweenPlanets, ref allPoints, regionCenters, radiusPerRegion + 20, alignmentNumber);
 
-          //                int useAlternatePlacement = Context.QualityRandom.NextWithInclusiveUpperBound(0, 100);
-          //This is some code to try having some planet regions look different. So far I'm not happy
-          //don't use alternative placemetns for large regions
-          // if(useAlternatePlacement < 10 && regionsOfPlanets[i] < 10)
-          //   {
-          //     pointsForThisRegion = BadgerUtilityMethods.addCircularPoints(regionsOfPlanets[i], Context, regionCenters[i], radiusPerRegion - 100,
-          //                                                                  ref allPoints);
-          //   }
-          // else if(useAlternatePlacement < 20 && regionsOfPlanets[i] < 10)
-          //   {
-          //     pointsForThisRegion = BadgerUtilityMethods.addGrid(); //need arguments here
-
-          //   }
-          // else
-          //   {
-          //do the usual randomness
-          pointsForThisRegion = BadgerUtilityMethods.addPointsInCircleWithExclusion(regionsOfPlanets[i], Context, regionCenters[i], radiusPerRegion,
-                                                                                    minDistanceBetweenPlanets, ref allPoints, regionCenters, radiusPerRegion + 20, alignmentNumber);
-          //                  }
           List<Planet> planetsForThisRegion = BadgerUtilityMethods.convertPointsToPlanets(pointsForThisRegion, galaxy, Context);
+          if(veryVerboseDebug)
+            {
+              string s = System.String.Format("Added planets for region {0} of {1}", i, regionCenters.Count);
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
           //Now pick a random method of linking these planets together
-          s = System.String.Format("Added planets for region {0} of {1}", i, regionCenters.Count);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
 
           LinkMethod method = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTreeInRegion, percentGabrielInRegion,
                                                                        percentRNGInRegion, percentSpanningTreeWithConnectionsInRegion,
                                                                        Context);
-          //Note I need to restore this functionality into getRandomLinkMethod
-//          if(planetsForThisRegion.Count > 12) //for large regions, don't use a spanning tree, it won't look as good
-//            LinkMethod = Context.QualityRandom.NextWithInclusiveUpperBound(0, 80);
-//          linkingMethod = 50;
           if(method == LinkMethod.Gabriel)
             {
               BadgerUtilityMethods.createGabrielGraph(planetsForThisRegion);
+              int maxToRemove = 2;
+              if(regionsOfPlanets[i] < 8)
+                maxToRemove = 1;
+              if(circleDone == i)
+                maxToRemove = 0;
+              BadgerUtilityMethods.removeSomeLinksBetweenPlanets(maxToRemove, planetsForThisRegion, Context);
             }
           else if(method == LinkMethod.RNG)
             {
               //RNG
               BadgerUtilityMethods.createRNGGraph(planetsForThisRegion);
+              int maxToRemove = 1;
+              if(regionsOfPlanets[i] < 8)
+                maxToRemove = 0;
+              if(circleDone == i)
+                maxToRemove = 0;
+
+              BadgerUtilityMethods.removeSomeLinksBetweenPlanets(maxToRemove, planetsForThisRegion, Context);
             }
           else if(method == LinkMethod.SpanningTree)
             {
@@ -1709,19 +1980,13 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
             }
           allPlanetsPerRegion.Add(planetsForThisRegion);
           allPlanets.AddRange(planetsForThisRegion);
-          // for(i = 0; i < planetsForThisRegion.Count; i++)
-          //   {
-          //     allPlanets.Add(planetsForThisRegion[i]);
-          //   }
-          s = System.String.Format("Planets for region {0} of {1} are now linked", i, regionCenters.Count);
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+          if(veryVerboseDebug)
+            {
+              string s = System.String.Format("Planets for region {0} of {1} are now linked", i, regionCenters.Count);
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
         }
 
-      //Now choose how to links the regions together
-      LinkMethod regionLinkMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTreeBetweenRegion,
-                                                                             percentGabrielBetweenRegion,
-                                                                             percentRNGBetweenRegion,
-                                                                             percentSpanningTreeWithConnectionsBetweenRegion, Context);
 
       if(regionLinkMethod == LinkMethod.SpanningTree)
         {
@@ -1790,56 +2055,153 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
           int minHops = numberToSeed/10;
           if(minHops > 6)
             minHops = 6;
-                    
-          s = System.String.Format("Adding a few random connections at the end");
-          ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-          BadgerUtilityMethods.addRandomConnections(allPlanets, -1, Context, 5);
-
-          
+          if(debug)
+            {
+              string s = System.String.Format("Adding a few random connections at the end");
+              ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
+            }
+          if(addSomeExtraLinks)
+          BadgerUtilityMethods.addRandomConnections(allPlanets, 2, Context, 5);
         }
-
-      
-      // if(regionLinkMethod == LinkMethod.Nebula)
-      //   {
-      //     // //pick which region we start linking from
-      //     int regionStart = Context.QualityRandom.NextWithInclusiveUpperBound(0, regionsOfPlanets.Count - 1 );
-      //     // order the other regions by closeness
-      //     s = System.String.Format("Start linking the regions together starting at {0}", regionStart);
-      //     ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-
-      //     int[] distanceToRegionCenter = new int[regionsOfPlanets.Count];
-      //     for(int i = 0; i < regionsOfPlanets.Count; i++)
-      //       {
-      //         if(i == regionStart)
-      //           distanceToRegionCenter[i] = -1; //don't ever try to link to yourself
-      //         distanceToRegionCenter[i] = Mat.DistanceBetweenPoints(regionCenters[regionStart], regionCenters[i]);
-      //       }
-      //     s = System.String.Format("Found closest regions to start");
-      //     ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-          
-      //     int radiusOfRegionsCovered = 1;
-      //     for(int i = 0; i < regionsOfPlanets.Count; i++)
-      //       {
-      //         if(i == regionStart)
-      //           continue; //don't link to yourself
-      //         int closestRegionCenter = findNextValue(distanceToRegionCenter, radiusOfRegionsCovered, regionsOfPlanets.Count);
-      //         s = System.String.Format("Trying to link in region {0}", closestRegionCenter);
-      //         ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-              
-      //         distanceToRegionCenter[closestRegionCenter] = -1; //remove this entry so we don't try it again
-      //         //we have to do this in case two regions are equidistant
-      //         BadgerUtilityMethods.linkPlanetLists(allPlanets[regionStart], allPlanets[closestRegionCenter], regionCenters[closestRegionCenter]);
-      //       }
-      //     //now lets link everything together at the end a bit better
-      //     int minHops = numberToSeed/10;
-      //     if(minHops > 6)
-      //       minHops = 6;
-                    
-      //     s = System.String.Format("Adding a few random connections at the end");
-      //     ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
-      //     BadgerUtilityMethods.addRandomConnections(allPlanets[regionStart], -1, Context, 5);
-      //   }
+      else
+        {
+          ArcenDebugging.ArcenDebugLogSingleLine("BUG: linking regions with unknown algorithm", Verbosity.DoNotShow);
+        }
     }
+
+      void getNebulaLinkingPercentages(bool isAsteroid, int nebulaConnectivity, bool addSomeExtraLinks,
+                                      out int percentSpanningTreeInRegion, out int percentSpanningTreeWithConnectionsInRegion,
+                                      out int percentGabrielInRegion, out int percentRNGInRegion,
+                                      out LinkMethod InterRegionLinkingMethod)
+        {
+           percentSpanningTreeInRegion = 10;
+           percentSpanningTreeWithConnectionsInRegion = 10;
+           percentGabrielInRegion = 40;
+           percentRNGInRegion = 40;
+           InterRegionLinkingMethod = LinkMethod.Gabriel;
+          if(!isAsteroid )
+            {
+              if(nebulaConnectivity == 1)
+                {
+                  percentSpanningTreeInRegion = 20;
+                  percentSpanningTreeWithConnectionsInRegion = 30;
+                  percentGabrielInRegion = 20;
+                  percentRNGInRegion = 30;
+                  InterRegionLinkingMethod = LinkMethod.RNG;
+                }
+              if(nebulaConnectivity == 2)
+                {
+                  percentSpanningTreeInRegion = 10;
+                  percentSpanningTreeWithConnectionsInRegion = 10;
+                  percentGabrielInRegion = 40;
+                  percentRNGInRegion = 40;
+                  InterRegionLinkingMethod = LinkMethod.Gabriel;
+                }
+              if(nebulaConnectivity == 3)
+                {
+                  percentSpanningTreeInRegion = 5;
+                  percentSpanningTreeWithConnectionsInRegion = 5;
+                  percentGabrielInRegion = 45;
+                  percentRNGInRegion = 45;
+                  InterRegionLinkingMethod = LinkMethod.Gabriel;
+               } 
+            }
+          if(isAsteroid)
+            {
+              percentSpanningTreeInRegion = 0;
+              percentSpanningTreeWithConnectionsInRegion = 0;
+              percentGabrielInRegion = 100;
+              percentRNGInRegion = 0;
+
+              InterRegionLinkingMethod = LinkMethod.SpanningTree;
+              
+              if(addSomeExtraLinks)
+                {
+                  InterRegionLinkingMethod = LinkMethod.SpanningTreeWithConnections;
+                }
+            }
+
+
+        }
+    
+    void nebulaSettingUpdates(out int numClustersHint, out int nebulaConnectivity, bool isAsteroid)
+      {
+        numClustersHint = 2;
+        if(isAsteroid)
+          numClustersHint = 1;
+        nebulaConnectivity = 2;
+        ArcenSetting setting;
+        
+        if(isAsteroid)
+          setting = BadgerUtilityMethods.getSettingByName("NumberOfAsteroids");
+        else
+          setting = BadgerUtilityMethods.getSettingByName("NumberOfNebulae");
+
+        numClustersHint = setting.TempValue_Int;
+        if(!isAsteroid)
+          {
+            setting = BadgerUtilityMethods.getSettingByName("NebulaeConnectivity");
+            nebulaConnectivity = setting.TempValue_Int;
+          }
+        return;
+      }
+
+    // void nebulaSettingUpdates( out int minPlanetsPerRegion, out int maxPlanetsPerRegion,
+    //                            out int radiusPerRegion, out int distanceBetweenRegions, bool isAsteroid)
+    //   {
+
+    //For this version, we passed inthe explicit region sizes. Was my original attempt
+    //     //set defaults in case Settings aren't there
+    //      minPlanetsPerRegion = 6;
+    //      maxPlanetsPerRegion = 17;
+    //      radiusPerRegion = 210;
+    //      distanceBetweenRegions = 210;
+    //      if(isAsteroid)
+    //        {
+    //          minPlanetsPerRegion = 4;
+    //          maxPlanetsPerRegion = 10;
+    //          radiusPerRegion = 130;
+    //          distanceBetweenRegions = 360;
+    //        }
+
+    //     ArcenSetting setting;
+    //     if(isAsteroid)
+    //       setting = BadgerUtilityMethods.getSettingByName("MinPlanetsPerAsteroidRegion");
+    //     else
+    //       setting = BadgerUtilityMethods.getSettingByName("MinPlanetsPerNebulaRegion");
+
+    //     if(setting != null && setting.TempValue_Int != 0)
+    //       {
+    //         minPlanetsPerRegion = setting.TempValue_Int;
+    //       }
+        
+    //     if(isAsteroid)
+    //       setting = BadgerUtilityMethods.getSettingByName("MaxPlanetsPerAsteroidRegion");
+    //     else
+    //       setting = BadgerUtilityMethods.getSettingByName("MaxPlanetsPerNebulaRegion");
+
+    //     if(setting != null  && setting.TempValue_Int != 0)
+    //       {
+    //         maxPlanetsPerRegion = setting.TempValue_Int;
+    //       }
+    //     if(isAsteroid)
+    //       setting = BadgerUtilityMethods.getSettingByName("radiusPerRegionAsteroid");
+    //     else
+    //       setting = BadgerUtilityMethods.getSettingByName("radiusPerRegionNebula");
+
+    //     if(setting != null  && setting.TempValue_Int != 0)
+    //       {
+    //         radiusPerRegion = setting.TempValue_Int;
+    //       }
+    //     if(isAsteroid)
+    //       setting = BadgerUtilityMethods.getSettingByName("distanceBetweenAsteroidRegion");
+    //     else
+    //       setting = BadgerUtilityMethods.getSettingByName("distanceBetweenNebulaRegion");
+    //     if(setting != null  && setting.TempValue_Int != 0)
+    //       {
+    //         distanceBetweenRegions = setting.TempValue_Int;
+    //       }
+    //   }
     //returns the index of the smallest distance that's larger than smallestDistanceSoFar
     //ie if our distances are 4, 5, 6, 7 and smallestDistanceSoFar == 5
     //then it would return 6
@@ -1860,18 +2222,17 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         return idx;
       }
   }
-  
+
   public class Mapgen_Octopus : Mapgen_Base
   {
     /* This map type was suggested by Tadrinth on the forums. He couched it as 
        "Spiral galaxy: large cluster in the middle (Body), 8 arms coming off, each arm is a series of linked small clusters.  "
        which made me think of an octopus. So variables are named like it's an octopus
 
-       Plan of attack: Determine how many planets to have in the center cluster, then how many arms to have,
-       then how many planets per arm.
+       It was initially coded by BadgerBadger, and then Tadrinth made some welcome tweaks.
 
-       Notes for Tadrinth:
-       We figure out how many planets belong in each arm and hoe many planets go in the body.
+       Original modification notes for Tadrinth:
+       We figure out how many planets belong in each arm and how many planets go in the body.
        Planets are allocated via the "addPointsInCircle" because that's easily implemented (and because Keith
        had already written most of the pieces, so I could steal it readily).
 
@@ -1882,44 +2243,69 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
        You can connect gruops of planets via the linkPlanetLists function, so just call that first to link the two
        clusters in each arm
        */
+
+    bool debug = false;
     public override void Generate(Galaxy galaxy, ArcenSimContext Context, int numberToSeed, MapTypeData mapType)
     { 
       int symmetryFactor = 2;
-      // numberToSeed = Context.QualityRandom.NextWithInclusiveUpperBound(80 / 5, 120 / 5) * 5; // randomize for testing
+      //numberToSeed =  BadgerUtilityMethods.getSettingValueInt("NumPlanets");
+      //if(numberToSeed == 0)
+      //  numberToSeed = 80;
 
+      int userSetSymmetry = BadgerUtilityMethods.getSettingValueInt("OctopusNumArms");
+      //original values: radius 70
+      //                     distForThisArm 95
+      //                        minDistanceBetweenPlanets 35
+
+      int radius = 100;
+      int distForThisArm = 105;
+      //Tadrinth had the minDistance at 25, but that just feels too
+      //cluttered to me; it's hard to read anything at max zoom
+      int minDistanceBetweenPlanets = 45; 
 
       if (numberToSeed < 20)
       {
+        radius = 70;
+        distForThisArm = 80;
         symmetryFactor = 1;
       }
       else if (numberToSeed < 60)
       {
+        radius = 90;
+        distForThisArm = 100;
+
         symmetryFactor = 2;
       }
       else if (numberToSeed < 80)
       {
+        radius = 100;
+        distForThisArm = 120;
+
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2,3);
       }
       else if(numberToSeed < 110)
       {
+        radius = 130;
+        distForThisArm = 145;
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(2, 4);
       }
       else
       {
+        radius = 150;
+        distForThisArm = 165;
         symmetryFactor = Context.QualityRandom.NextWithInclusiveUpperBound(3, 5);
       }
 
+      if(userSetSymmetry != 0)
+        symmetryFactor = userSetSymmetry;
+      
       int minPlanetsPerCluster = Math.Max(numberToSeed / (symmetryFactor * 5), 2);
 
       // need at least symmetry three for multi-cluster method to look decent
       bool singleLargeCentralCluster = (symmetryFactor < 3) || Context.QualityRandom.NextBool();
 
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("Generating a spiral galaxy with symmetry {0} and {1}", symmetryFactor, singleLargeCentralCluster ? "one large central cluster" : "a ring of small central clusters"), Verbosity.ShowAsInfo);
-
-
-      int radius = 70;
-      int distForThisArm = 95;
-      int minDistanceBetweenPlanets = 25;
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("Generating a spiral galaxy with symmetry {0} and {1}", symmetryFactor, singleLargeCentralCluster ? "one large central cluster" : "a ring of small central clusters"), Verbosity.ShowAsInfo);
 
 
       ArcenPoint galacticCenter = Engine_AIW2.GalaxyCenter;
@@ -1963,15 +2349,17 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         planetsRemaining -= 1;
       }
 
-      foreach( var i in centerClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine("center " + i, Verbosity.DoNotShow);
+      if(debug)
+        {
+          foreach( var i in centerClusterSizes)
+            ArcenDebugging.ArcenDebugLogSingleLine("center " + i, Verbosity.DoNotShow);
 
-      foreach (var i in innerArmClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine(" inner " + i, Verbosity.DoNotShow);
+          foreach (var i in innerArmClusterSizes)
+            ArcenDebugging.ArcenDebugLogSingleLine(" inner " + i, Verbosity.DoNotShow);
 
-      foreach (var i in outerArmClusterSizes)
-        ArcenDebugging.ArcenDebugLogSingleLine(" outer " + i, Verbosity.DoNotShow);
-
+          foreach (var i in outerArmClusterSizes)
+            ArcenDebugging.ArcenDebugLogSingleLine(" outer " + i, Verbosity.DoNotShow);
+        }
 
 
       //allocate the points for the body
@@ -1986,7 +2374,6 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       List<List<ArcenPoint>> outerArmPointsList = new List<List<ArcenPoint>>();
       List<List<Planet>> bodyPlanets = new List<List<Planet>>();
 
-      
       //Figure out where to place the Arms; we split them evenly around the body
       //note that we update the armAngle for each iteration.
 
@@ -2013,16 +2400,19 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
 
       for (int i = 0; i < symmetryFactor; i++)
       {
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating cluster {0}", i), Verbosity.DoNotShow);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating cluster {0}", i), Verbosity.DoNotShow);
 
         armAngle = armAngle.Add(anglePerArm);
 
         var firstArmAngle = armAngle.Add(fakeRotation);
         var secondArmAngle = firstArmAngle.Add(subAnglePerArm);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("armAngle {0}", armAngle), Verbosity.DoNotShow);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("first arm angle {0}", firstArmAngle), Verbosity.DoNotShow);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("second arm angle {0}", secondArmAngle), Verbosity.DoNotShow);
-
+        if(debug)
+          {
+            ArcenDebugging.ArcenDebugLogSingleLine(string.Format("armAngle {0}", armAngle), Verbosity.DoNotShow);
+            ArcenDebugging.ArcenDebugLogSingleLine(string.Format("first arm angle {0}", firstArmAngle), Verbosity.DoNotShow);
+            ArcenDebugging.ArcenDebugLogSingleLine(string.Format("second arm angle {0}", secondArmAngle), Verbosity.DoNotShow);
+          }
 
 
         //pick random method for linking for arm
@@ -2030,10 +2420,7 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
         int percentRNG = 10;
         int percentSpanningTree = 5;
         int percentSpanningTreeWithConnections = 5;
-        
 
-        // s = "Iter "+ i + " of " + planetsPerArm.Count + " planets for it: " + planetsPerArm[i] + " thisArmDist " + distForThisArm + " minArm  " + minArmDistFromBody + " maxArm " + maxArmDistFromBody;
-        // ArcenDebugging.ArcenDebugLogSingleLine(s, Verbosity.DoNotShow);
         if (!singleLargeCentralCluster)
         {
           bodyCluster = new List<Planet>();
@@ -2042,23 +2429,23 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
           bodyCenters.Add(center);
         }
 
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating inner arm clusters {0}", i), Verbosity.DoNotShow);
 
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating inner arm clusters {0}", i), Verbosity.DoNotShow);
-
-         percentGabriel = 50;
-         percentRNG = 30;
-         percentSpanningTree = 10;
-         percentSpanningTreeWithConnections = 10;
+        percentGabriel = 50;
+        percentRNG = 30;
+        percentSpanningTree = 10;
+        percentSpanningTreeWithConnections = 10;
         linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
         var innerArm1 = new List<Planet>();
-        var innerArm1Center = CreateClusterOfPlanets(innerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i], ref allPoints, firstArmAngle, linkingMethod, distForThisArm * 2+20);
+        var innerArm1Center = CreateClusterOfPlanets(innerArm1, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+15, alignmentNumber, innerArmClusterSizes[2 * i], ref allPoints, firstArmAngle, linkingMethod, distForThisArm * 2+20);
 
-        
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);       
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second inner arm clusters {0}", i), Verbosity.DoNotShow);       
         var innerArm2 = new List<Planet>();
-        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+10, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+35);
+        var innerArm2Center = CreateClusterOfPlanets(innerArm2, galaxy, Context, radius, galacticCenter, minDistanceBetweenPlanets+15, alignmentNumber, innerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle, linkingMethod, distForThisArm * 2+35);
 
         percentGabriel = 15;
         percentRNG = 15;
@@ -2068,22 +2455,27 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
 
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.DoNotShow);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating outer arm clusters {0}", i), Verbosity.DoNotShow);
 
         linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
         var outerArm1 = new List<Planet>();
-        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius + 30, galacticCenter, minDistanceBetweenPlanets + 30, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 4);
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
+        var outerArm1Center = CreateClusterOfPlanets(outerArm1, galaxy, Context, radius + 30, galacticCenter, minDistanceBetweenPlanets + 40, alignmentNumber, outerArmClusterSizes[2 * i], ref allPoints, firstArmAngle.Add(fakeRotation), LinkMethod.SpanningTreeWithConnections, distForThisArm * 4);
 
-        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second outer arm clusters {0}", i), Verbosity.DoNotShow);
+        if(debug)
+          {
+            ArcenDebugging.ArcenDebugLogSingleLine(string.Format("linking outer arm clusters {0}", i), Verbosity.ShowAsInfo);
+
+            ArcenDebugging.ArcenDebugLogSingleLine(string.Format("creating second outer arm clusters {0}", i), Verbosity.DoNotShow);
+          }
 
         linkingMethod = BadgerUtilityMethods.getRandomLinkMethod(percentSpanningTree, percentGabriel,
                                                                   percentRNG, percentSpanningTreeWithConnections,
                                                                   Context);
         var outerArm2 = new List<Planet>();
-        var outerArm2Center = CreateClusterOfPlanets(outerArm2, galaxy, Context, radius+30, galacticCenter, minDistanceBetweenPlanets+30, alignmentNumber, outerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle.Add(fakeRotation), linkingMethod, distForThisArm * 4);
+        var outerArm2Center = CreateClusterOfPlanets(outerArm2, galaxy, Context, radius+30, galacticCenter, minDistanceBetweenPlanets+40, alignmentNumber, outerArmClusterSizes[2 * i + 1], ref allPoints, secondArmAngle.Add(fakeRotation), linkingMethod, distForThisArm * 4);
 
         // Link clusters together - inner to outer, body to inner
         BadgerUtilityMethods.linkPlanetLists(innerArm1, outerArm1, outerArm1Center, false);
@@ -2094,30 +2486,35 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
 
       if (!singleLargeCentralCluster)
       {
-        ArcenDebugging.ArcenDebugLogSingleLine("linking central clusters together", Verbosity.DoNotShow);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine("linking central clusters together", Verbosity.DoNotShow);
         for (var i = 0; i < symmetryFactor - 1; i++)
         {
           BadgerUtilityMethods.linkPlanetLists(bodyPlanets[i], bodyPlanets[i + 1], bodyCenters[i + 1], false);
 
         }
-        ArcenDebugging.ArcenDebugLogSingleLine("linking last two central clusters together to make a ring", Verbosity.DoNotShow);
+        if(debug)
+          ArcenDebugging.ArcenDebugLogSingleLine("linking last two central clusters together to make a ring", Verbosity.DoNotShow);
         BadgerUtilityMethods.linkPlanetLists(bodyPlanets[0], bodyPlanets[bodyPlanets.Count - 1], bodyCenters[bodyPlanets.Count - 1], false);
       }
     }
 
     private static ArcenPoint CreateClusterOfPlanets(List<Planet> cluster, Galaxy galaxy, ArcenSimContext Context, int radius, ArcenPoint galacticCenter, int minDistanceBetweenPlanets, int alignmentNumber, int clusterSize, ref List<ArcenPoint> allPoints, AngleDegrees armAngle, LinkMethod linkingMethod, int distForThisArm)
     {
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - creating cluster\n size: {0}\nangle: {1}\n dist: {2}", clusterSize, armAngle, distForThisArm, linkingMethod), Verbosity.DoNotShow);
+      bool debug = false;
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - creating cluster\n size: {0}\nangle: {1}\n dist: {2}", clusterSize, armAngle, distForThisArm, linkingMethod), Verbosity.DoNotShow);
 
       var bodyCenter = galacticCenter.GetPointAtAngleAndDistance(armAngle, distForThisArm);
       List<ArcenPoint> pointsForArm = BadgerUtilityMethods.addPointsInCircle(clusterSize, Context, bodyCenter, radius,
                                         minDistanceBetweenPlanets, ref allPoints, alignmentNumber);
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - converting to planets", clusterSize, armAngle, distForThisArm), Verbosity.DoNotShow);
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - converting to planets", clusterSize, armAngle, distForThisArm), Verbosity.DoNotShow);
 
       List<Planet> planetsForThisArm = BadgerUtilityMethods.convertPointsToPlanets(pointsForArm, galaxy, Context);
       cluster.AddRange(planetsForThisArm);
-
-      ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - linking\n link: {0}", linkingMethod), Verbosity.DoNotShow);
+      if(debug)
+        ArcenDebugging.ArcenDebugLogSingleLine(string.Format("CreateClusterOfPlanets - linking\n link: {0}", linkingMethod), Verbosity.DoNotShow);
 
       if (linkingMethod == LinkMethod.Gabriel)
         BadgerUtilityMethods.createGabrielGraph(planetsForThisArm);
@@ -2126,8 +2523,6 @@ to GameData/Configuration/MapType/KDL_MapTypes.xml
       else if (linkingMethod == LinkMethod.SpanningTreeWithConnections)
       {
           BadgerUtilityMethods.createMinimumSpanningTree(planetsForThisArm);
-  
-//          BadgerUtilityMethods.addRandomConnections(planetsForThisArm, 1, Context, 2);
       }
       else
       {

@@ -28,7 +28,7 @@ namespace Arcen.AIW2.External
 
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
@@ -85,7 +85,7 @@ namespace Arcen.AIW2.External
                 Buffer.Add( this.ControlGroup == null ? "NULL" : ControlGroup.Name );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 bool clearSelectionFirst = false;
                 bool unselectingInstead = false;
@@ -103,7 +103,7 @@ namespace Arcen.AIW2.External
                 bool isAssigningToGroup = Engine_AIW2.Instance.PresentationLayer.GetAreInputFlagsActive( ArcenInputFlags.ModifyingControlGroup );
 
                 if ( this.ControlGroup == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
 
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
                 bool foundOne = false;
@@ -120,12 +120,12 @@ namespace Arcen.AIW2.External
                     GameCommand command = GameCommand.Create( commandType );
                     command.SentWithToggleSet_SetOrdersForProducedUnits = Engine_AIW2.Instance.SettingOrdersForProducedUnits;
                     command.RelatedControlGroup = this.ControlGroup;
-                    Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+                    Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate( GameEntity selected )
                     {
                         command.RelatedEntityIDs.Add( selected.PrimaryKeyID );
                         return DelReturn.Continue;
                     } );
-                    World_AIW2.Instance.QueueGameCommand( command );
+                    World_AIW2.Instance.QueueGameCommand( command, true );
                 }
                 else
                 {
@@ -140,7 +140,7 @@ namespace Arcen.AIW2.External
                             {
                                 if ( entity.GetIsSelected() )
                                     Engine_AIW2.Instance.PresentationLayer.CenterPlanetViewOnEntity( entity, false );
-                                Engine_AIW2.Instance.ClearSelection();
+                                Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                             }
                         }
                         if ( unselectingInstead )
@@ -151,7 +151,7 @@ namespace Arcen.AIW2.External
                     } );
                     if ( !foundOne && clearSelectionFirst )
                     {
-                        Engine_AIW2.Instance.ClearSelection();
+                        Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                         this.ControlGroup.DoForEntities( delegate ( GameEntity entity )
                         {
                             if ( !foundOne )
@@ -171,6 +171,7 @@ namespace Arcen.AIW2.External
                     }
                     Window_InGameBottomMenu.Instance.CloseAllExpansions();
                 }
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }
@@ -192,11 +193,12 @@ namespace Arcen.AIW2.External
                 Buffer.Add( "(Create New)" );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 GameCommand command = GameCommand.Create( GameCommandType.CreateNewControlGroup );
-                command.RelatedSide = World_AIW2.Instance.GetLocalSide();
-                World_AIW2.Instance.QueueGameCommand( command );
+                command.RelatedSide = World_AIW2.Instance.GetLocalPlayerSide();
+                World_AIW2.Instance.QueueGameCommand( command, true );
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }

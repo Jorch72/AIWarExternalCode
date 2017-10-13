@@ -46,7 +46,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
@@ -57,6 +57,7 @@ namespace Arcen.AIW2.External
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
                 Window_InGameHackingMenu windowController = (Window_InGameHackingMenu)Element.Window.Controller;
+                if ( windowController != null ) { } //prevent compiler warning
 
                 if ( hacker.ActiveHack != Instance.LastObservedActiveHack )
                 {
@@ -118,26 +119,27 @@ namespace Arcen.AIW2.External
                 buffer.Add( ")" );
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 GameEntity hacker = localSide.Entities.GetFirstMatching( EntityRollupType.KingUnits );
                 if ( hacker == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 if ( hacker.Combat != this.Target.Combat )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 if ( !this.Type.Implementation.GetCanBeHacked( this.Target, hacker ) )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 if ( localSide.StoredHacking < this.Type.Implementation.GetCostToHack( this.Target, hacker ) )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
                 GameCommand command = GameCommand.Create( GameCommandType.SetActiveHack );
                 command.RelatedHack = this.Type;
                 command.RelatedEntityIDs.Add( hacker.PrimaryKeyID );
                 command.TargetEntityIDs.Add( this.Target.PrimaryKeyID );
                 if ( command.RelatedEntityIDs.Count > 0 )
-                    World_AIW2.Instance.QueueGameCommand( command );
+                    World_AIW2.Instance.QueueGameCommand( command, true );
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover()

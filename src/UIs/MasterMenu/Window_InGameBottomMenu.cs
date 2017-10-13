@@ -32,7 +32,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
@@ -80,7 +80,7 @@ namespace Arcen.AIW2.External
 
             private ControlGroup GetControlGroup()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( this.ControlGroupIndex < 0 || this.ControlGroupIndex >= localSide.ControlGroups.Count )
                     return null;
                 return localSide.ControlGroups[this.ControlGroupIndex];
@@ -103,7 +103,7 @@ namespace Arcen.AIW2.External
                 }
             }
 
-            public override void HandleClick()
+            public override MouseHandlingResult HandleClick()
             {
                 bool clearSelectionFirst = false;
                 bool unselectingInstead = false;
@@ -123,7 +123,7 @@ namespace Arcen.AIW2.External
                 ControlGroup group = this.GetControlGroup();
 
                 if ( group == null )
-                    return;
+                    return MouseHandlingResult.PlayClickDeniedSound;
 
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
                 bool foundOne = false;
@@ -140,12 +140,12 @@ namespace Arcen.AIW2.External
                     GameCommand command = GameCommand.Create( commandType );
                     command.SentWithToggleSet_SetOrdersForProducedUnits = Engine_AIW2.Instance.SettingOrdersForProducedUnits;
                     command.RelatedControlGroup = group;
-                    Engine_AIW2.Instance.DoForSelected( delegate ( GameEntity selected )
+                    Engine_AIW2.Instance.DoForSelected( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy, delegate( GameEntity selected )
                     {
                         command.RelatedEntityIDs.Add( selected.PrimaryKeyID );
                         return DelReturn.Continue;
                     } );
-                    World_AIW2.Instance.QueueGameCommand( command );
+                    World_AIW2.Instance.QueueGameCommand( command, true );
                 }
                 else
                 {
@@ -160,7 +160,7 @@ namespace Arcen.AIW2.External
                             {
                                 if ( entity.GetIsSelected() )
                                     Engine_AIW2.Instance.PresentationLayer.CenterPlanetViewOnEntity( entity, false );
-                                Engine_AIW2.Instance.ClearSelection();
+                                Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                             }
                         }
                         if ( unselectingInstead )
@@ -171,7 +171,7 @@ namespace Arcen.AIW2.External
                     } );
                     if ( !foundOne && clearSelectionFirst )
                     {
-                        Engine_AIW2.Instance.ClearSelection();
+                        Engine_AIW2.Instance.ClearSelection( SelectionCommandScope.CurrentPlanet_UnlessViewingGalaxy );
                         group.DoForEntities( delegate ( GameEntity entity )
                         {
                             if ( !foundOne )
@@ -189,7 +189,9 @@ namespace Arcen.AIW2.External
                             return DelReturn.Continue;
                         } );
                     }
+                    World_AIW2.Instance.CurrentActiveSelectionControlGroupPrimaryKeyID = group.PrimaryKeyID;
                 }
+                return MouseHandlingResult.None;
             }
 
             public override void HandleMouseover() { }

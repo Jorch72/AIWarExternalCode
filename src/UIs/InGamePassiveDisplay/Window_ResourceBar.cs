@@ -23,23 +23,34 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Time elapsed in game" );
+            }
+
         }
 
         public class tMetal : TextAbstractBase
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer buffer )
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
-                buffer.Add( "Metal: " );
+                buffer.Add( "<sprite name=\"Metal\">" );
                 buffer.Add( localSide.StoredMetal.IntValue.ToString( "#,##0" ) );
+
                 if ( localSide.LastFrame_TotalMetalFlowRequested > 0 )
-                {
-                    buffer.Add( "\n" );
-                    FInt percentProduced = localSide.LastFrame_MetalFlowRequestPortionMet * 100;
-                    buffer.Add( percentProduced.IntValue );
-                    buffer.Add( "%" );
+                  {
+                    buffer.Add( "   (" );
+                    int amountSpentLastFrame = localSide.LastFrame_MetalSpent.IntValue;
+                    int incomeLastFrame = localSide.LastFrame_MetalProduced.GetNearestIntPreferringHigher();
+                    int netIncome = incomeLastFrame - amountSpentLastFrame;
+                    if(netIncome > 0)
+                      buffer.Add( "+" );
+                    buffer.Add( netIncome);
+                    buffer.Add( " net)" );
                     if ( localSide.LastFrame_MetalFlowRequestPortionMet < FInt.One &&
                         localSide.LastFrame_MetalProduced > FInt.Zero )
                     {
@@ -47,8 +58,8 @@ namespace Arcen.AIW2.External
                         int framesLeft = ( localSide.LastFrame_TotalMetalFlowProjectedRequests / localSide.LastFrame_MetalProduced ).GetNearestIntPreferringHigher();
                         int secondsLeft = ( framesLeft * World_AIW2.Instance.SimulationProfile.SecondsPerFrameSim ).GetNearestIntPreferringHigher();
                         buffer.Add( Engine_Universal.ToHoursAndMinutesString( secondsLeft ) );
-                        buffer.Add( ")" );
-                        buffer.Add( "\n" ).Add( localSide.LastFrame_TotalMetalFlowProjectedRequests.IntValue ).Add( " / " ).Add( localSide.LastFrame_MetalProduced.ReadableString );
+                        buffer.Add( " est)" ); //estimated time left
+                        buffer.Add( "\n required: " ).Add( localSide.LastFrame_TotalMetalFlowProjectedRequests.IntValue ).Add( "\nproduced: " ).Add( localSide.LastFrame_MetalProduced.GetNearestIntPreferringHigher() );
                     }
                 }
             }
@@ -56,40 +67,69 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Metal: Required to build things" );
+            }
+
         }
 
         public class tFuel : TextAbstractBase
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
-                Buffer.Add( "Fuel: " ).Add( localSide.NetFuel.ToString( "#,##0" ) );
+                Buffer.Add( "<sprite name=\"Fuel\">" ).Add( localSide.NetFuel.ToString( "#,##0" ) );
             }
 
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
+              if ( localSide == null )
+                return;
+
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Available Fuel. Fuel is a global resource required to power fleetships and starships.\nUsed/Total: (" + localSide.FuelConsumption.ToString() + "/" + localSide.FuelProduction + ")" );
+            }
+
         }
 
         public class tPower : TextAbstractBase
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
                 if ( planet == null )
                     return;
                 CombatSide side = planet.Combat.GetSideForWorldSide( localSide );
-                Buffer.Add( "Power: " );
+                Buffer.Add( "<sprite name=\"Power\">" );
                 Buffer.Add( side.NetPower.ToString( "#,##0" ) );
             }
 
             public override void OnUpdate()
             {
+            }
+
+            public override void HandleMouseover()
+            {
+              WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
+              if ( localSide == null )
+                return;
+              Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
+              if ( planet == null )
+                return;
+
+              CombatSide side = planet.Combat.GetSideForWorldSide( localSide );
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Available Power. Power is per-planet and is required to build structures.\nUsed/Total: (" + side.PowerConsumption.ToString() + "/" + side.PowerProduction.ToString() + ")" );
             }
         }
 
@@ -97,15 +137,21 @@ namespace Arcen.AIW2.External
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
-                Buffer.Add( "Science: " ).Add( localSide.StoredScience.IntValue.ToString( "#,##0" ) );
+                Buffer.Add( "<sprite name=\"Science\">" ).Add( localSide.StoredScience.IntValue.ToString( "#,##0" ) );
             }
 
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Science: unlocks higher level units and turrets" );
+            }
+
         }
 
         public class tAIProgress : TextAbstractBase
@@ -118,16 +164,22 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "AI Progress: Measures AI Agressiveness" );
+            }
+
         }
 
         public class tHacking : TextAbstractBase
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
-                Buffer.Add( "Hacking: " ).Add( localSide.StoredHacking.IntValue.ToString( "#,##0" ) );
+                Buffer.Add( "<sprite name=\"Hacking\">" ).Add( localSide.StoredHacking.IntValue.ToString( "#,##0" ) );
                 GameEntity hacker = localSide.Entities.GetFirstMatching( EntityRollupType.KingUnits );
                 if ( hacker == null || hacker.ActiveHack == null )
                     return;
@@ -143,6 +195,12 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Hacking: Used to exploit flaws in the AI internal network" );
+            }
+
         }
 
         public class tWavePrediction : TextAbstractBase
@@ -160,9 +218,13 @@ namespace Arcen.AIW2.External
                      FInt currentAmount = side.StoredStrengthByBudget[AIBudgetType.Wave];
                      FInt amountLeft = threshold - currentAmount;
                      FInt secondsLeft = amountLeft / perSecond;
+                     if(secondsLeft < 60)
+                       Buffer.Add( " <color=#ff0000>" );
                      Buffer.Add( "Next wave in " );
                      Buffer.Add( Engine_Universal.ToHoursAndMinutesString( secondsLeft.IntValue ) );
                      Buffer.Add( " (" ).Add( currentAmount.ReadableString ).Add( "/" ).Add( threshold.ReadableString ).Add( ")" );
+                     if(secondsLeft < 60)
+                       Buffer.Add( "</color>" );
                      return DelReturn.Break;
                  } );
             }
@@ -176,6 +238,8 @@ namespace Arcen.AIW2.External
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer buffer )
             {
+                if ( !Engine_Universal.DebugOutputOn )
+                    return;
                 World_AIW2.Instance.DoForSides( delegate ( WorldSide side )
                 {
                     if ( side.Type != WorldSideType.AI )
@@ -212,7 +276,7 @@ namespace Arcen.AIW2.External
                     Planet planet = galaxy.Planets[i];
                     if ( planet.GetController().Side.WorldSide.Type == WorldSideType.Player )
                         continue;
-                    threat += planet.AIThreatStrength;
+                    threat += planet.Combat.GetLocalPlayerSide().DataByStance[SideStance.Hostile].ThreatStrength;
                 }
                 Buffer.Add( "Threat: " ).Add( threat.IntValue );
             }
@@ -220,6 +284,12 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Threat: AI forces actively waiting to strike" );
+            }
+
         }
 
         public class tAttack : TextAbstractBase
@@ -235,7 +305,7 @@ namespace Arcen.AIW2.External
                     Planet planet = galaxy.Planets[i];
                     if ( planet.GetController().Side.WorldSide.Type != WorldSideType.Player )
                         continue;
-                    attack += planet.AIThreatStrength;
+                    attack += planet.Combat.GetLocalPlayerSide().DataByStance[SideStance.Hostile].ThreatStrength;
                 }
                 Buffer.Add( "Attack: " ).Add( attack.IntValue );
             }
@@ -243,6 +313,12 @@ namespace Arcen.AIW2.External
             public override void OnUpdate()
             {
             }
+
+            public override void HandleMouseover()
+            {
+              Window_AtMouseTooltipPanel.bPanel.Instance.SetText( "Attack: AI forces on your planets" );
+            }
+
         }
     }
 }

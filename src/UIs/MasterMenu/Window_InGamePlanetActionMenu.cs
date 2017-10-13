@@ -45,7 +45,7 @@ namespace Arcen.AIW2.External
         {
             public override void OnUpdate()
             {
-                WorldSide localSide = World_AIW2.Instance.GetLocalSide();
+                WorldSide localSide = World_AIW2.Instance.GetLocalPlayerSide();
                 if ( localSide == null )
                     return;
                 ArcenUI_ButtonSet elementAsType = (ArcenUI_ButtonSet)Element;
@@ -59,13 +59,13 @@ namespace Arcen.AIW2.External
                     if ( planet != null )
                     {
                         int x = 0;
+                        Vector2 offset;
+                        Vector2 size;
                         for ( CombatSideBooleanFlag flag = CombatSideBooleanFlag.None + 1; flag < CombatSideBooleanFlag.Length; flag++ )
                         {
                             bCombatSideBooleanFlagToggle newButtonController = new bCombatSideBooleanFlagToggle( flag );
-                            Vector2 offset;
                             offset.x = x * elementAsType.ButtonWidth;
                             offset.y = 0;
-                            Vector2 size;
                             size.x = elementAsType.ButtonWidth;
                             size.y = elementAsType.ButtonHeight;
                             elementAsType.AddButton( newButtonController, size, offset );
@@ -95,14 +95,16 @@ namespace Arcen.AIW2.External
                 Planet planet = Engine_AIW2.Instance.NonSim_GetPlanetBeingCurrentlyViewed();
                 if ( planet == null )
                     return;
-                CombatSide side = planet.Combat.GetSideForWorldSide( World_AIW2.Instance.GetLocalSide() );
+                CombatSide side = planet.Combat.GetSideForWorldSide( World_AIW2.Instance.GetLocalPlayerSide() );
                 buffer.Add( Flag.ToString() ).Add( ": " );
                 if ( side.BooleanFlags[Flag] )
                     buffer.Add( "On" );
                 else
                     buffer.Add( "Off" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( (int)Flag, "ToggleCombatSideBooleanFlag" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( (int)Flag, "ToggleCombatSideBooleanFlag" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }

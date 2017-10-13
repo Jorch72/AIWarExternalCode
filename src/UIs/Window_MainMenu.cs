@@ -26,6 +26,8 @@ namespace Arcen.AIW2.External
                 return false;
             if ( World_AIW2.Instance.InSetupPhase )
                 return false;
+            if ( Window_SettingsMenu.Instance.IsOpen )
+                return false;
             return true;
         }
 
@@ -36,19 +38,37 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Start New Game" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGenerateMap" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugGenerateMap" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
 
-        public class bConnectToServer : ButtonAbstractBase
+        public class bOpenTutorial : ButtonAbstractBase
+        {
+            public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
+            {
+                base.GetTextToShow( Buffer );
+                Buffer.Add( "Open Tutorial \n(In External Browser)" );
+            }
+            public override MouseHandlingResult HandleClick() { Process.Start( "https://wiki.arcengames.com/index.php?title=AI_War_2:Earlier_Than_Earlier_Alpha_Play_Instructions" );
+                return MouseHandlingResult.None;
+            }
+            public override void HandleMouseover() { }
+            public override void OnUpdate() { }
+        }
+
+    public class bConnectToServer : ButtonAbstractBase
         {
             public override void GetTextToShow( ArcenDoubleCharacterBuffer Buffer )
             {
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Debug: Connect To " ).Add( Instance.TargetIP ).Add( "\n" ).Add( "(change in PlayerData/AlphaMPTarget.txt)" );
             }
-            public override void HandleClick() { Input_MainHandler.HandleInner( 0, "DebugConnectToLocalServer" ); }
+            public override MouseHandlingResult HandleClick() { Input_MainHandler.HandleInner( 0, "DebugConnectToLocalServer" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate()
             {
@@ -68,9 +88,18 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Load Game" );
             }
-            public override void HandleClick() { Window_LoadGameMenu.Instance.Open(); }
+            public override MouseHandlingResult HandleClick() { Window_LoadGameMenu.Instance.Open();
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
+        }
+
+        public class bSettings : WindowTogglingButtonController
+        {
+            public static bSettings Instance;
+            public bSettings() : base( "Settings", ">" ) { Instance = this; }
+            public override ToggleableWindowController GetRelatedController() { return Window_SettingsMenu.Instance; }
         }
 
         public class bOpenReleaseNotes : ButtonAbstractBase
@@ -80,7 +109,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Open Release Notes\n(In External Browser)" );
             }
-            public override void HandleClick() { Process.Start( "https://wiki.arcengames.com/index.php?title=AI_War_2:AI_War_2#Release_History" ); }
+            public override MouseHandlingResult HandleClick() { Process.Start( "https://wiki.arcengames.com/index.php?title=AI_War_2:AI_War_2#Release_History" );
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
@@ -92,7 +123,9 @@ namespace Arcen.AIW2.External
                 base.GetTextToShow( Buffer );
                 Buffer.Add( "Exit Game" );
             }
-            public override void HandleClick() { Engine_Universal.ForceClose(); }
+            public override MouseHandlingResult HandleClick() { Engine_Universal.ForceClose();
+                return MouseHandlingResult.None;
+            }
             public override void HandleMouseover() { }
             public override void OnUpdate() { }
         }
